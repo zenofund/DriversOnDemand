@@ -11,13 +11,11 @@ export function PublicHeader() {
       <div className="mx-auto max-w-7xl px-6">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/">
-            <a className="flex items-center gap-2 text-xl font-bold font-heading">
-              <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-                <BadgeCheck className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="text-foreground">Drivers On Demand</span>
-            </a>
+          <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading">
+            <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
+              <BadgeCheck className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-foreground">Drivers On Demand</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -39,21 +37,15 @@ export function PublicHeader() {
               <BadgeCheck className="h-4 w-4 text-primary" />
               <span>5,000+ Verified Drivers</span>
             </div>
-            <Link href="/auth/login">
-              <Button variant="ghost" data-testid="button-login" asChild>
-                <a>Log In</a>
-              </Button>
-            </Link>
-            <Link href="/auth/signup?role=driver">
-              <Button variant="default" data-testid="button-signup-driver" asChild>
-                <a>Sign Up as Driver</a>
-              </Button>
-            </Link>
-            <Link href="/auth/signup?role=client">
-              <Button variant="secondary" data-testid="button-signup-client" asChild>
-                <a>Book a Driver</a>
-              </Button>
-            </Link>
+            <Button variant="ghost" data-testid="button-login" asChild>
+              <Link href="/auth/login">Log In</Link>
+            </Button>
+            <Button variant="default" data-testid="button-signup-driver" asChild>
+              <Link href="/auth/signup?role=driver">Sign Up as Driver</Link>
+            </Button>
+            <Button variant="secondary" data-testid="button-signup-client" asChild>
+              <Link href="/auth/signup?role=client">Book a Driver</Link>
+            </Button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -85,21 +77,15 @@ export function PublicHeader() {
               </a>
             </nav>
             <div className="flex flex-col gap-2 px-4">
-              <Link href="/auth/login">
-                <Button variant="ghost" className="w-full" data-testid="button-login-mobile" asChild>
-                  <a>Log In</a>
-                </Button>
-              </Link>
-              <Link href="/auth/signup?role=driver">
-                <Button variant="default" className="w-full" data-testid="button-signup-driver-mobile" asChild>
-                  <a>Sign Up as Driver</a>
-                </Button>
-              </Link>
-              <Link href="/auth/signup?role=client">
-                <Button variant="secondary" className="w-full" data-testid="button-signup-client-mobile" asChild>
-                  <a>Book a Driver</a>
-                </Button>
-              </Link>
+              <Button variant="ghost" className="w-full" data-testid="button-login-mobile" asChild>
+                <Link href="/auth/login">Log In</Link>
+              </Button>
+              <Button variant="default" className="w-full" data-testid="button-signup-driver-mobile" asChild>
+                <Link href="/auth/signup?role=driver">Sign Up as Driver</Link>
+              </Button>
+              <Button variant="secondary" className="w-full" data-testid="button-signup-client-mobile" asChild>
+                <Link href="/auth/signup?role=client">Book a Driver</Link>
+              </Button>
             </div>
           </div>
         )}

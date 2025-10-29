@@ -287,12 +287,25 @@ useEffect(() => {
    - Admin dashboard: Platform-wide booking, driver, and client changes
    - Proper cleanup: All subscriptions unsubscribe on component unmount
 
-### 🔨 In Progress / Planned Enhancements
+6. **Driver Rating and Review System** - Complete rating functionality
+   - Database: ratings table with unique constraint (one rating per booking)
+   - API endpoints: Create, update, and fetch ratings with security validation
+   - Auto-calculation: Driver average rating updates after each submission
+   - UI: RatingDialog component with 5-star rating and optional review text
+   - Security: Clients can only rate completed bookings they participated in
+
+7. **In-App Chat System** - Real-time messaging between driver and client
+   - Database: messages table with RLS policies for participant-only access
+   - Real-time: Supabase Realtime publication for instant message delivery
+   - API endpoints: GET/POST with booking participation validation
+   - UI: ChatBox component with auto-scroll and sender/receiver styling
+   - Security: Server-side role detection, RLS enforcement, realtime scoped to booking
+
+### 🔨 Planned Enhancements
 - Push notifications via OneSignal
-- In-app chat between driver and client
 - Advanced analytics with charts (Recharts)
 - Batch payout processing
-- Rating and review system
 - Trip history export and PDF receipts
 - Geofencing alerts
 - Route optimization with Distance Matrix API
+- Audit logging and dispute resolution
