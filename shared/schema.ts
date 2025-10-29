@@ -228,3 +228,32 @@ export type DashboardStats = {
   trips_today: number;
   trips_this_month: number;
 };
+
+// ============================================================================
+// RATING SCHEMAS
+// ============================================================================
+
+export const ratingSchema = z.object({
+  id: z.string().uuid(),
+  booking_id: z.string().uuid(),
+  client_id: z.string().uuid(),
+  driver_id: z.string().uuid(),
+  rating: z.number().int().min(1).max(5),
+  review: z.string().nullable(),
+  created_at: z.string(),
+});
+
+export const insertRatingSchema = z.object({
+  booking_id: z.string().uuid(),
+  rating: z.number().int().min(1, "Rating must be at least 1").max(5, "Rating must be at most 5"),
+  review: z.string().optional(),
+});
+
+export type Rating = z.infer<typeof ratingSchema>;
+export type InsertRating = z.infer<typeof insertRatingSchema>;
+
+export type RatingWithDetails = Rating & {
+  client?: {
+    full_name: string;
+  };
+};

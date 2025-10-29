@@ -77,7 +77,7 @@ export default function DriverDashboard() {
     };
   }, [user, profile, toast]);
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<{ today_trips: number; today_earnings: number; total_earnings: number; total_trips: number }>({
     queryKey: ['/api/drivers/stats'],
     enabled: !!user,
     refetchOnWindowFocus: false,

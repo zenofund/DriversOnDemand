@@ -87,6 +87,18 @@ CREATE TABLE IF NOT EXISTS admin_users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ratings Table
+CREATE TABLE IF NOT EXISTS ratings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE NOT NULL,
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE NOT NULL,
+  driver_id UUID REFERENCES drivers(id) ON DELETE CASCADE NOT NULL,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(booking_id) -- One rating per booking
+);
+
 -- ============================================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================================
@@ -106,6 +118,10 @@ CREATE INDEX IF NOT EXISTS idx_transactions_booking_id ON transactions(booking_i
 CREATE INDEX IF NOT EXISTS idx_transactions_driver_id ON transactions(driver_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_paystack_ref ON transactions(paystack_ref);
 
+CREATE INDEX IF NOT EXISTS idx_ratings_driver_id ON ratings(driver_id);
+CREATE INDEX IF NOT EXISTS idx_ratings_client_id ON ratings(client_id);
+CREATE INDEX IF NOT EXISTS idx_ratings_booking_id ON ratings(booking_id);
+
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
@@ -116,6 +132,7 @@ ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 
 -- Drivers Policies
 CREATE POLICY "Drivers can view their own profile"
@@ -226,6 +243,32 @@ CREATE POLICY "Admins can view all transactions"
     )
   );
 
+-- Ratings Policies
+CREATE POLICY "Anyone can view ratings"
+  ON ratings FOR SELECT
+  USING (TRUE);
+
+CREATE POLICY "Clients can create ratings for their bookings"
+  ON ratings FOR INSERT
+  WITH CHECK (
+    auth.uid() IN (SELECT user_id FROM clients WHERE id = client_id)
+  );
+
+CREATE POLICY "Clients can update their own ratings"
+  ON ratings FOR UPDATE
+  USING (
+    auth.uid() IN (SELECT user_id FROM clients WHERE id = client_id)
+  );
+
+CREATE POLICY "Admins can view all ratings"
+  ON ratings FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_users
+      WHERE user_id = auth.uid() AND is_active = TRUE
+    )
+  );
+
 -- ============================================================================
 -- FUNCTIONS
 -- ============================================================================
@@ -278,6 +321,7 @@ CREATE TRIGGER on_auth_user_created
 -- Enable realtime for tables that need live updates
 ALTER PUBLICATION supabase_realtime ADD TABLE drivers;
 ALTER PUBLICATION supabase_realtime ADD TABLE bookings;
+ALTER PUBLICATION supabase_realtime ADD TABLE ratings;
 
 -- ============================================================================
 -- SEED DATA (Optional - for testing)

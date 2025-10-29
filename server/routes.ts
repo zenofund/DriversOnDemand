@@ -782,6 +782,201 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // RATINGS ENDPOINTS
+  // ============================================================================
+
+  // Get ratings for a driver
+  app.get("/api/ratings/driver/:driverId", async (req, res) => {
+    try {
+      const { driverId } = req.params;
+
+      const { data: ratings, error } = await supabase
+        .from('ratings')
+        .select(`
+          *,
+          client:clients(full_name)
+        `)
+        .eq('driver_id', driverId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      res.json(ratings || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Submit a new rating
+  app.post("/api/ratings", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { booking_id, rating, review } = req.body;
+
+      // Get client ID
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) {
+        return res.status(403).json({ error: "Only clients can submit ratings" });
+      }
+
+      // Get booking to verify ownership and status
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('client_id, driver_id, booking_status')
+        .eq('id', booking_id)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      if (booking.client_id !== client.id) {
+        return res.status(403).json({ error: "You can only rate your own bookings" });
+      }
+
+      if (booking.booking_status !== 'completed') {
+        return res.status(400).json({ error: "Can only rate completed bookings" });
+      }
+
+      // Check if rating already exists
+      const { data: existingRating } = await supabase
+        .from('ratings')
+        .select('id')
+        .eq('booking_id', booking_id)
+        .single();
+
+      if (existingRating) {
+        return res.status(400).json({ error: "This booking has already been rated" });
+      }
+
+      // Insert rating
+      const { data: newRating, error } = await supabase
+        .from('ratings')
+        .insert([{
+          booking_id,
+          client_id: client.id,
+          driver_id: booking.driver_id,
+          rating,
+          review: review || null,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update driver's average rating
+      const { data: driverRatings } = await supabase
+        .from('ratings')
+        .select('rating')
+        .eq('driver_id', booking.driver_id);
+
+      if (driverRatings && driverRatings.length > 0) {
+        const avgRating = driverRatings.reduce((sum, r) => sum + r.rating, 0) / driverRatings.length;
+        
+        await supabase
+          .from('drivers')
+          .update({ rating: avgRating })
+          .eq('id', booking.driver_id);
+      }
+
+      res.json(newRating);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Update a rating
+  app.put("/api/ratings/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { rating, review } = req.body;
+
+      // Get client ID
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership
+      const { data: existingRating } = await supabase
+        .from('ratings')
+        .select('client_id, driver_id')
+        .eq('id', id)
+        .single();
+
+      if (!existingRating) {
+        return res.status(404).json({ error: "Rating not found" });
+      }
+
+      if (existingRating.client_id !== client.id) {
+        return res.status(403).json({ error: "You can only update your own ratings" });
+      }
+
+      // Update rating
+      const { data: updatedRating, error } = await supabase
+        .from('ratings')
+        .update({ rating, review: review || null })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Recalculate driver's average rating
+      const { data: driverRatings } = await supabase
+        .from('ratings')
+        .select('rating')
+        .eq('driver_id', existingRating.driver_id);
+
+      if (driverRatings && driverRatings.length > 0) {
+        const avgRating = driverRatings.reduce((sum, r) => sum + r.rating, 0) / driverRatings.length;
+        
+        await supabase
+          .from('drivers')
+          .update({ rating: avgRating })
+          .eq('id', existingRating.driver_id);
+      }
+
+      res.json(updatedRating);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

@@ -26,7 +26,7 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: false,
   });
 
-  const { data: recentBookings = [] } = useQuery({
+  const { data: recentBookings = [] } = useQuery<any[]>({
     queryKey: ['/api/admin/recent-bookings'],
     enabled: !!user && role === 'admin',
     refetchOnWindowFocus: false,
