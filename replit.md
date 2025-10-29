@@ -50,8 +50,8 @@ Drivers On Demand connects clients with verified professional drivers in real-ti
 
 **Transactions Table**
 - Paystack reference for reconciliation
-- Split payment tracking
-- Settlement status
+- Split payment tracking with driver_share and platform_share columns
+- Settlement status (settled boolean)
 
 **Admin Users Table**
 - Role-based access (super_admin, moderator)

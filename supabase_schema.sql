@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   driver_id UUID REFERENCES drivers(id) ON DELETE SET NULL,
   paystack_ref TEXT NOT NULL UNIQUE,
   amount NUMERIC NOT NULL,
+  driver_share NUMERIC DEFAULT 0,
+  platform_share NUMERIC DEFAULT 0,
   split_code TEXT,
   settled BOOLEAN DEFAULT FALSE,
   transaction_type TEXT CHECK (transaction_type IN ('booking', 'verification')) NOT NULL,

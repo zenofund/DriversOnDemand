@@ -89,10 +89,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Driver not found" });
       }
 
-      // Mock stats for now
+      // Get today's date range
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Get today's completed bookings count
+      const { data: todayBookings } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('driver_id', driver.id)
+        .eq('booking_status', 'completed')
+        .gte('created_at', today.toISOString())
+        .lt('created_at', tomorrow.toISOString());
+
+      // Get today's earnings from transactions
+      const { data: todayTransactions, error: txError } = await supabase
+        .from('transactions')
+        .select('driver_share')
+        .eq('driver_id', driver.id)
+        .eq('settled', true)
+        .gte('created_at', today.toISOString())
+        .lt('created_at', tomorrow.toISOString());
+
+      if (txError) {
+        console.error('Error fetching transactions:', txError);
+      }
+
+      const today_trips = todayBookings?.length || 0;
+      const today_earnings = todayTransactions?.reduce((sum, t) => sum + (t.driver_share || 0), 0) || 0;
+
       const stats = {
-        today_trips: 3,
-        today_earnings: 25000,
+        today_trips,
+        today_earnings,
       };
 
       res.json(stats);
@@ -307,14 +337,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      // Mock stats for now
+      // Verify admin user
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Check if user is admin
+      const { data: adminUser } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!adminUser) {
+        return res.status(403).json({ error: "Forbidden - Admin access required" });
+      }
+
+      // Get today's date range
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Get month start date
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      // Count active (online) drivers
+      const { data: driversData } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('online_status', 'online');
+
+      // Count total clients
+      const { data: clientsData } = await supabase
+        .from('clients')
+        .select('id');
+
+      // Get total revenue and commission from settled transactions
+      const { data: allTransactions, error: txError } = await supabase
+        .from('transactions')
+        .select('amount, platform_share')
+        .eq('settled', true);
+
+      if (txError) {
+        console.error('Error fetching transactions:', txError);
+      }
+
+      // Get today's trips
+      const { data: todayTrips } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('booking_status', 'completed')
+        .gte('created_at', today.toISOString())
+        .lt('created_at', tomorrow.toISOString());
+
+      // Get this month's trips
+      const { data: monthTrips } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('booking_status', 'completed')
+        .gte('created_at', monthStart.toISOString());
+
+      const total_revenue = allTransactions?.reduce((sum, t) => sum + (t.amount || 0), 0) || 0;
+      const commission_earned = allTransactions?.reduce((sum, t) => sum + (t.platform_share || 0), 0) || 0;
+
       const stats = {
-        active_drivers: 45,
-        total_clients: 230,
-        total_revenue: 2500000,
-        commission_earned: 250000,
-        trips_today: 15,
-        trips_this_month: 450,
+        active_drivers: driversData?.length || 0,
+        total_clients: clientsData?.length || 0,
+        total_revenue,
+        commission_earned,
+        trips_today: todayTrips?.length || 0,
+        trips_this_month: monthTrips?.length || 0,
       };
 
       res.json(stats);
@@ -377,13 +473,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })
             .eq('id', metadata.driver_id);
 
-          // Create transaction record
+          const verificationAmount = amount / 100;
+          
+          // Create transaction record (verification fee goes 100% to platform)
           await supabase
             .from('transactions')
             .insert([{
               driver_id: metadata.driver_id,
               paystack_ref: reference,
-              amount: amount / 100,
+              amount: verificationAmount,
+              driver_share: 0,
+              platform_share: verificationAmount,
               transaction_type: 'verification',
               settled: true,
               created_at: new Date().toISOString(),
@@ -400,17 +500,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })
             .eq('id', metadata.booking_id);
 
+          const bookingAmount = amount / 100;
+          // Calculate split: 90% driver, 10% platform
+          const platformShare = bookingAmount * 0.10;
+          const driverShare = bookingAmount * 0.90;
+
           // Create transaction record
+          // Mark as settled=true because webhook confirms successful payment
           await supabase
             .from('transactions')
             .insert([{
               booking_id: metadata.booking_id,
               driver_id: metadata.driver_id,
               paystack_ref: reference,
-              amount: amount / 100,
+              amount: bookingAmount,
+              driver_share: driverShare,
+              platform_share: platformShare,
               split_code: metadata.split_code,
               transaction_type: 'booking',
-              settled: false,
+              settled: true,
               created_at: new Date().toISOString(),
             }]);
         }
