@@ -22,10 +22,8 @@ export function RatingDialog({ open, onOpenChange, bookingId, driverName }: Rati
 
   const submitRatingMutation = useMutation({
     mutationFn: async (data: { booking_id: string; rating: number; review: string }) => {
-      return apiRequest('/api/ratings', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      const response = await apiRequest('POST', '/api/ratings', data);
+      return response.json();
     },
     onSuccess: (data: any) => {
       toast({

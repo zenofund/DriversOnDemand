@@ -100,6 +100,19 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 
 -- ============================================================================
+-- MESSAGES TABLE (In-App Chat)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  sender_role TEXT NOT NULL CHECK (sender_role IN ('driver', 'client')),
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================================
 
@@ -122,6 +135,9 @@ CREATE INDEX IF NOT EXISTS idx_ratings_driver_id ON ratings(driver_id);
 CREATE INDEX IF NOT EXISTS idx_ratings_client_id ON ratings(client_id);
 CREATE INDEX IF NOT EXISTS idx_ratings_booking_id ON ratings(booking_id);
 
+CREATE INDEX IF NOT EXISTS idx_messages_booking_id ON messages(booking_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
+
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
@@ -133,6 +149,7 @@ ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- Drivers Policies
 CREATE POLICY "Drivers can view their own profile"
@@ -269,6 +286,28 @@ CREATE POLICY "Admins can view all ratings"
     )
   );
 
+-- Messages Policies
+CREATE POLICY "Participants can view messages in their bookings"
+  ON messages FOR SELECT
+  USING (
+    booking_id IN (
+      SELECT id FROM bookings WHERE
+        client_id IN (SELECT id FROM clients WHERE user_id = auth.uid())
+        OR driver_id IN (SELECT id FROM drivers WHERE user_id = auth.uid())
+    )
+  );
+
+CREATE POLICY "Participants can send messages in their bookings"
+  ON messages FOR INSERT
+  WITH CHECK (
+    booking_id IN (
+      SELECT id FROM bookings WHERE
+        client_id IN (SELECT id FROM clients WHERE user_id = auth.uid())
+        OR driver_id IN (SELECT id FROM drivers WHERE user_id = auth.uid())
+    )
+    AND sender_id = auth.uid()
+  );
+
 -- ============================================================================
 -- FUNCTIONS
 -- ============================================================================
@@ -322,6 +361,7 @@ CREATE TRIGGER on_auth_user_created
 ALTER PUBLICATION supabase_realtime ADD TABLE drivers;
 ALTER PUBLICATION supabase_realtime ADD TABLE bookings;
 ALTER PUBLICATION supabase_realtime ADD TABLE ratings;
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 
 -- ============================================================================
 -- SEED DATA (Optional - for testing)

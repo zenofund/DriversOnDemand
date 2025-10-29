@@ -257,3 +257,24 @@ export type RatingWithDetails = Rating & {
     full_name: string;
   };
 };
+
+// ============================================================================
+// MESSAGE SCHEMAS
+// ============================================================================
+
+export const messageSchema = z.object({
+  id: z.string().uuid(),
+  booking_id: z.string().uuid(),
+  sender_id: z.string().uuid(),
+  sender_role: z.enum([UserRole.DRIVER, UserRole.CLIENT]),
+  message: z.string(),
+  created_at: z.string(),
+});
+
+export const insertMessageSchema = z.object({
+  booking_id: z.string().uuid(),
+  message: z.string().min(1, "Message cannot be empty").max(1000, "Message too long"),
+});
+
+export type Message = z.infer<typeof messageSchema>;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;

@@ -902,6 +902,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get existing rating for a booking
+  app.get("/api/ratings/booking/:bookingId", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { bookingId } = req.params;
+
+      // Get client ID
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Get rating for this booking
+      const { data: rating, error } = await supabase
+        .from('ratings')
+        .select('*')
+        .eq('booking_id', bookingId)
+        .eq('client_id', client.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+        throw error;
+      }
+
+      res.json(rating || null);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Update a rating
   app.put("/api/ratings/:id", async (req, res) => {
     try {
@@ -972,6 +1018,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(updatedRating);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ============================================================================
+  // MESSAGES ENDPOINTS
+  // ============================================================================
+
+  // Get messages for a booking
+  app.get("/api/messages/:bookingId", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { bookingId } = req.params;
+
+      // Verify user is participant in this booking
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('client_id, driver_id')
+        .eq('id', bookingId)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Check if user is either the client or driver
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      const isParticipant = 
+        (client && booking.client_id === client.id) ||
+        (driver && booking.driver_id === driver.id);
+
+      if (!isParticipant) {
+        return res.status(403).json({ error: "Not authorized to view these messages" });
+      }
+
+      // Get messages
+      const { data: messages, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('booking_id', bookingId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      res.json(messages || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Send a message
+  app.post("/api/messages", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { booking_id, message } = req.body;
+
+      // Verify user is participant in this booking
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('client_id, driver_id')
+        .eq('id', booking_id)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Determine user role and verify participation
+      let senderRole: 'driver' | 'client' | null = null;
+
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (client && booking.client_id === client.id) {
+        senderRole = 'client';
+      } else if (driver && booking.driver_id === driver.id) {
+        senderRole = 'driver';
+      }
+
+      if (!senderRole) {
+        return res.status(403).json({ error: "Not authorized to send messages in this booking" });
+      }
+
+      // Insert message
+      const { data: newMessage, error } = await supabase
+        .from('messages')
+        .insert([{
+          booking_id,
+          sender_id: user.id,
+          sender_role: senderRole,
+          message,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json(newMessage);
     } catch (error) {
       res.status(500).json({ error: "Server error" });
     }
