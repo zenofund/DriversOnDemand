@@ -113,6 +113,56 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- ============================================================================
+-- NOTIFICATION PREFERENCES TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  onesignal_player_id TEXT,
+  push_enabled BOOLEAN DEFAULT TRUE,
+  email_enabled BOOLEAN DEFAULT TRUE,
+  booking_updates BOOLEAN DEFAULT TRUE,
+  payment_alerts BOOLEAN DEFAULT TRUE,
+  chat_messages BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- NOTIFICATION LOGS TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS notification_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  notification_type TEXT NOT NULL CHECK (notification_type IN ('booking_created', 'booking_accepted', 'booking_completed', 'booking_cancelled', 'payment_received', 'message_received', 'driver_nearby')),
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  data JSONB,
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  read_at TIMESTAMPTZ
+);
+
+-- ============================================================================
+-- PAYOUTS TABLE (Driver Payment Settlement)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS payouts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  driver_id UUID NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL CHECK (amount > 0),
+  transaction_ids UUID[] NOT NULL, -- Array of transaction IDs included in this payout
+  paystack_transfer_code TEXT,
+  paystack_transfer_id TEXT,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'completed', 'failed')) DEFAULT 'pending',
+  failure_reason TEXT,
+  initiated_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================================
 
@@ -138,6 +188,14 @@ CREATE INDEX IF NOT EXISTS idx_ratings_booking_id ON ratings(booking_id);
 CREATE INDEX IF NOT EXISTS idx_messages_booking_id ON messages(booking_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_notification_prefs_user_id ON notification_preferences(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_user_id ON notification_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_read ON notification_logs(read_at);
+
+CREATE INDEX IF NOT EXISTS idx_payouts_driver_id ON payouts(driver_id);
+CREATE INDEX IF NOT EXISTS idx_payouts_status ON payouts(status);
+CREATE INDEX IF NOT EXISTS idx_payouts_created_at ON payouts(created_at DESC);
+
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
@@ -150,6 +208,9 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payouts ENABLE ROW LEVEL SECURITY;
 
 -- Drivers Policies
 CREATE POLICY "Drivers can view their own profile"
@@ -306,6 +367,40 @@ CREATE POLICY "Participants can send messages in their bookings"
         OR driver_id IN (SELECT id FROM drivers WHERE user_id = auth.uid())
     )
     AND sender_id = auth.uid()
+  );
+
+-- Notification Preferences Policies
+CREATE POLICY "Users can view their own notification preferences"
+  ON notification_preferences FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own notification preferences"
+  ON notification_preferences FOR ALL
+  USING (auth.uid() = user_id);
+
+-- Notification Logs Policies
+CREATE POLICY "Users can view their own notifications"
+  ON notification_logs FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own notification read status"
+  ON notification_logs FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Payouts Policies
+CREATE POLICY "Drivers can view their own payouts"
+  ON payouts FOR SELECT
+  USING (
+    driver_id IN (SELECT id FROM drivers WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Admins can view all payouts"
+  ON payouts FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_users
+      WHERE user_id = auth.uid() AND is_active = TRUE
+    )
   );
 
 -- ============================================================================

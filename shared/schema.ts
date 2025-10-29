@@ -278,3 +278,62 @@ export const insertMessageSchema = z.object({
 
 export type Message = z.infer<typeof messageSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+// ============================================================================
+// NOTIFICATION SCHEMAS
+// ============================================================================
+
+export const NotificationType = {
+  BOOKING_CREATED: 'booking_created',
+  BOOKING_ACCEPTED: 'booking_accepted',
+  BOOKING_COMPLETED: 'booking_completed',
+  BOOKING_CANCELLED: 'booking_cancelled',
+  PAYMENT_RECEIVED: 'payment_received',
+  MESSAGE_RECEIVED: 'message_received',
+  DRIVER_NEARBY: 'driver_nearby',
+} as const;
+
+export const notificationPreferencesSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  onesignal_player_id: z.string().nullable(),
+  push_enabled: z.boolean(),
+  email_enabled: z.boolean(),
+  booking_updates: z.boolean(),
+  payment_alerts: z.boolean(),
+  chat_messages: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const notificationLogSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  notification_type: z.enum([
+    NotificationType.BOOKING_CREATED,
+    NotificationType.BOOKING_ACCEPTED,
+    NotificationType.BOOKING_COMPLETED,
+    NotificationType.BOOKING_CANCELLED,
+    NotificationType.PAYMENT_RECEIVED,
+    NotificationType.MESSAGE_RECEIVED,
+    NotificationType.DRIVER_NEARBY,
+  ]),
+  title: z.string(),
+  message: z.string(),
+  data: z.record(z.any()).nullable(),
+  sent_at: z.string(),
+  read_at: z.string().nullable(),
+});
+
+export const updateNotificationPreferencesSchema = z.object({
+  onesignal_player_id: z.string().optional(),
+  push_enabled: z.boolean().optional(),
+  email_enabled: z.boolean().optional(),
+  booking_updates: z.boolean().optional(),
+  payment_alerts: z.boolean().optional(),
+  chat_messages: z.boolean().optional(),
+});
+
+export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
+export type NotificationLog = z.infer<typeof notificationLogSchema>;
+export type UpdateNotificationPreferences = z.infer<typeof updateNotificationPreferencesSchema>;

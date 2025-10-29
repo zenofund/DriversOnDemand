@@ -301,11 +301,30 @@ useEffect(() => {
    - UI: ChatBox component with auto-scroll and sender/receiver styling
    - Security: Server-side role detection, RLS enforcement, realtime scoped to booking
 
+8. **Push Notification System** - OneSignal integration for instant updates
+   - Database: notification_preferences and notification_logs tables with RLS
+   - Notification service: Automatic push notifications for booking/payment events
+   - API endpoints: GET/PUT preferences, GET logs, mark as read
+   - Templates: Pre-configured notifications for all booking events
+   - User control: Granular notification preferences per event type
+   - Documentation: Complete OneSignal setup guide (ONESIGNAL_SETUP.md)
+
+9. **Automated Payout Processing** - Paystack Transfer API for driver settlements
+   - Database: payouts table with status tracking and transaction linking
+   - Payout service: Automatic transfer recipient creation and settlement
+   - API endpoints: GET pending/history, POST request payout, admin batch processing
+   - Security: Bank detail validation, minimum threshold (₦1,000)
+   - Scheduling: Automated daily/weekly payout job support
+   - Audit trail: Complete payout history with Paystack transfer codes
+
+10. **Driver Alerts & Route Optimization** - Google Maps integration for accurate routing
+   - Distance Matrix API: Real driving distances with live traffic data
+   - Geofencing: 500m radius alerts for pickup/destination zones
+   - Route optimization: Multi-waypoint route calculation with turn-by-turn
+   - ETA calculation: Dynamic arrival time based on current traffic
+   - API endpoints: POST calculate, check-geofence, optimize route
+
 ### 🔨 Planned Enhancements
-- Push notifications via OneSignal
-- Advanced analytics with charts (Recharts)
-- Batch payout processing
-- Trip history export and PDF receipts
-- Geofencing alerts
-- Route optimization with Distance Matrix API
+- Advanced analytics with Recharts charts
+- Trip history CSV export and PDF receipts
 - Audit logging and dispute resolution

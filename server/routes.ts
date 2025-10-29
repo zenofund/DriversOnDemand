@@ -6,6 +6,12 @@ import crypto from "crypto";
 // Supabase client setup
 import { createClient } from '@supabase/supabase-js';
 
+// Payout service
+import { getDriverPendingSettlements, processDriverPayout, getDriverPayoutHistory, processAutomatedPayouts } from './services/payoutService';
+
+// Route service
+import { getRealDistanceAndDuration, isWithinGeofence, getOptimizedRoute, calculateETA } from './services/routeService';
+
 // Server should use service role key for full database access
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -1018,6 +1024,355 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(updatedRating);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ============================================================================
+  // NOTIFICATIONS ENDPOINTS
+  // ============================================================================
+
+  // Get user's notification preferences
+  app.get("/api/notifications/preferences", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      let { data: prefs } = await supabase
+        .from('notification_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      // Create default preferences if none exist
+      if (!prefs) {
+        const { data: newPrefs } = await supabase
+          .from('notification_preferences')
+          .insert([{ user_id: user.id }])
+          .select()
+          .single();
+        prefs = newPrefs;
+      }
+
+      res.json(prefs);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Update notification preferences
+  app.put("/api/notifications/preferences", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const updates = req.body;
+
+      const { data, error } = await supabase
+        .from('notification_preferences')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get user's notification logs
+  app.get("/api/notifications/logs", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: logs, error } = await supabase
+        .from('notification_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('sent_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      res.json(logs || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Mark notification as read
+  app.put("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+
+      const { data, error } = await supabase
+        .from('notification_logs')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ============================================================================
+  // PAYOUT ENDPOINTS
+  // ============================================================================
+
+  // Get driver's pending settlements
+  app.get("/api/payouts/pending", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(403).json({ error: "Only drivers can access payouts" });
+      }
+
+      const settlements = await getDriverPendingSettlements(driver.id);
+      res.json(settlements);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get driver's payout history
+  app.get("/api/payouts/history", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(403).json({ error: "Only drivers can access payouts" });
+      }
+
+      const payouts = await getDriverPayoutHistory(driver.id);
+      res.json(payouts);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Request a payout (driver)
+  app.post("/api/payouts/request", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id, bank_code, account_number, full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(403).json({ error: "Only drivers can request payouts" });
+      }
+
+      const { bank_code, account_number, account_name } = req.body;
+
+      if (!bank_code || !account_number || !account_name) {
+        return res.status(400).json({ error: "Bank details required" });
+      }
+
+      const result = await processDriverPayout(
+        driver.id,
+        bank_code,
+        account_number,
+        account_name
+      );
+
+      if (result.success) {
+        res.json({ success: true, payout_id: result.payout_id });
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Calculate real distance and duration for a route
+  app.post("/api/routes/calculate", async (req, res) => {
+    try {
+      const { origin, destination } = req.body;
+
+      if (!origin || !destination) {
+        return res.status(400).json({ error: "Origin and destination required" });
+      }
+
+      const result = await getRealDistanceAndDuration(origin, destination);
+
+      if (!result) {
+        return res.status(500).json({ error: "Failed to calculate route" });
+      }
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Check if driver is within geofence
+  app.post("/api/routes/check-geofence", async (req, res) => {
+    try {
+      const { driver_location, target_location, radius_km } = req.body;
+
+      if (!driver_location || !target_location) {
+        return res.status(400).json({ error: "Locations required" });
+      }
+
+      const isWithin = isWithinGeofence(
+        driver_location,
+        target_location,
+        radius_km || 0.5
+      );
+
+      res.json({ is_within_geofence: isWithin });
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get optimized route
+  app.post("/api/routes/optimize", async (req, res) => {
+    try {
+      const { origin, destination, waypoints } = req.body;
+
+      if (!origin || !destination) {
+        return res.status(400).json({ error: "Origin and destination required" });
+      }
+
+      const route = await getOptimizedRoute(origin, destination, waypoints);
+
+      if (!route) {
+        return res.status(500).json({ error: "Failed to get optimized route" });
+      }
+
+      res.json(route);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Admin: Run automated payouts
+  app.post("/api/admin/payouts/process-all", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const result = await processAutomatedPayouts();
+      res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Server error" });
     }
