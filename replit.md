@@ -78,12 +78,13 @@ Drivers On Demand connects clients with verified professional drivers in real-ti
 1. Client enters pickup and destination
 2. System queries nearby online verified drivers
 3. Client selects driver and confirms booking
-4. Paystack payment initialized with split (90% driver, 10% platform)
+4. Client pays upfront - funds held in platform balance
 5. Payment success triggers booking creation
 6. Driver receives real-time notification
 7. Driver accepts/declines booking
 8. Trip proceeds with live status updates
-9. Completion triggers payout settlement
+9. Both driver and client confirm completion
+10. Automatic payout transfer to driver (amount minus commission)
 
 ## Key Features
 
@@ -127,12 +128,15 @@ Drivers On Demand connects clients with verified professional drivers in real-ti
 
 ### Paystack Setup
 1. **Driver verification**: One-time ₦5,000 fee via `/api/payments/verify-driver`
-2. **Booking payments**: Dynamic pricing based on hourly rate × duration via `/api/payments/initialize-booking`
-3. **Split payments**: Subaccount with 10% percentage_charge ensures 90% to driver, 10% platform
-4. **Subaccount creation**: `/api/payments/create-subaccount` creates Paystack subaccount for verified drivers
-5. **Webhook verification**: Signature validation with `x-paystack-signature` header
-6. **Transaction records**: Full reconciliation with driver_share and platform_share columns
-7. **Security**: Booking ownership validation, server-side amount derivation from booking.total_cost
+2. **Bank account setup**: Driver adds bank details → Paystack verifies account → Creates transfer recipient
+3. **Upfront payment**: Client pays full amount at booking (no split) → funds held in platform balance
+4. **Completion confirmation**: Both driver and client confirm task completion via separate endpoints
+5. **Automatic payout**: When both confirm → fetch commission from platform_settings → calculate driver share → instant transfer to driver's bank
+6. **Commission**: Configurable by super admin (default 10%), applied at completion time
+7. **Webhook verification**: Signature validation with `x-paystack-signature` header
+8. **Transaction records**: Full reconciliation with driver_share and platform_share (calculated on completion)
+9. **Security**: Atomic transaction claiming prevents duplicate transfers, comprehensive error logging for reconciliation
+10. **Idempotency**: Deterministic transfer references ensure Paystack rejects duplicates
 
 ### Security
 - Webhook signature validation prevents spoofing
@@ -256,13 +260,22 @@ useEffect(() => {
 - `POST /api/payments/initialize` - Initialize Paystack payment
 - `POST /api/webhooks/paystack` - Paystack webhook handler
 
-## Current Development Status (October 29, 2025)
+## Current Development Status (December 2025)
 
-### ✅ Completed Features
-1. **Real Database Statistics** - All dashboards show live data from Supabase
+### ✅ Completed Features (Latest: Completion-Based Payment System)
+1. **Completion-Based Automatic Payouts** - Restructured payment flow (December 2025)
+   - Upfront payment: Client pays full amount at booking (held in platform balance)
+   - Bank account management: Driver adds account → Paystack verification → Transfer recipient creation
+   - Dual confirmation: Both driver and client must confirm completion
+   - Automatic payout: Instant transfer to driver when both confirm
+   - Configurable commission: Super admin can adjust platform commission (default 10%)
+   - Race condition prevention: Atomic transaction claiming ensures single payout
+   - Comprehensive logging: All partial failures logged for reconciliation
+
+2. **Real Database Statistics** - All dashboards show live data from Supabase
    - Driver stats: today's trips/earnings calculated from transactions table
    - Admin stats: active drivers, total clients, revenue, commission from real data
-   - Proper split payment tracking with driver_share and platform_share columns
+   - Completion-based settlement tracking with driver_share and platform_share
 
 2. **Google Maps Integration** - Location autocomplete with coordinate validation
    - Centralized singleton loader prevents duplicate API calls
@@ -309,13 +322,14 @@ useEffect(() => {
    - User control: Granular notification preferences per event type
    - Documentation: Complete OneSignal setup guide (ONESIGNAL_SETUP.md)
 
-9. **Automated Payout Processing** - Paystack Transfer API for driver settlements
-   - Database: payouts table with status tracking and transaction linking
-   - Payout service: Automatic transfer recipient creation and settlement
-   - API endpoints: GET pending/history, POST request payout, admin batch processing
-   - Security: Bank detail validation, minimum threshold (₦1,000)
-   - Scheduling: Automated daily/weekly payout job support
-   - Audit trail: Complete payout history with Paystack transfer codes
+9. **Completion-Based Automatic Payouts** - Instant driver payment on task completion
+   - Database: platform_settings with configurable commission percentage
+   - Bank account service: Paystack account verification and transfer recipient creation
+   - Completion confirmation: Dual confirmation (driver + client) triggers payout
+   - Payout service: Atomic transaction claiming, commission calculation, instant transfer
+   - API endpoints: POST driver-confirm, POST client-confirm, GET/PUT admin commission settings
+   - Security: Race condition prevention, rollback on failure, comprehensive logging
+   - Idempotency: Deterministic transfer references, duplicate prevention
 
 10. **Driver Alerts & Route Optimization** - Google Maps integration for accurate routing
    - Distance Matrix API: Real driving distances with live traffic data
