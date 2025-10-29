@@ -118,18 +118,21 @@ Drivers On Demand connects clients with verified professional drivers in real-ti
 ### Optimization Strategies
 - React Query caching prevents redundant fetches
 - `refetchOnWindowFocus: false` for static data
-- `refetchInterval: 15000` for booking updates (not every render)
+- Replaced polling with Supabase Realtime subscriptions for instant updates
 - Proper dependency arrays in useEffect to avoid infinite loops
 - Realtime subscription cleanup on component unmount
+- Centralized Google Maps loader to prevent duplicate API calls
 
 ## Payment Integration
 
 ### Paystack Setup
-1. Driver verification: One-time ₦5,000 fee
-2. Booking payments: Dynamic pricing based on hourly rate × duration
-3. Split payments: 90% to driver, 10% platform commission
-4. Webhook verification with signature validation
-5. Transaction records for reconciliation
+1. **Driver verification**: One-time ₦5,000 fee via `/api/payments/verify-driver`
+2. **Booking payments**: Dynamic pricing based on hourly rate × duration via `/api/payments/initialize-booking`
+3. **Split payments**: Subaccount with 10% percentage_charge ensures 90% to driver, 10% platform
+4. **Subaccount creation**: `/api/payments/create-subaccount` creates Paystack subaccount for verified drivers
+5. **Webhook verification**: Signature validation with `x-paystack-signature` header
+6. **Transaction records**: Full reconciliation with driver_share and platform_share columns
+7. **Security**: Booking ownership validation, server-side amount derivation from booking.total_cost
 
 ### Security
 - Webhook signature validation prevents spoofing
@@ -253,13 +256,43 @@ useEffect(() => {
 - `POST /api/payments/initialize` - Initialize Paystack payment
 - `POST /api/webhooks/paystack` - Paystack webhook handler
 
-## Future Enhancements
+## Current Development Status (October 29, 2025)
 
+### ✅ Completed Features
+1. **Real Database Statistics** - All dashboards show live data from Supabase
+   - Driver stats: today's trips/earnings calculated from transactions table
+   - Admin stats: active drivers, total clients, revenue, commission from real data
+   - Proper split payment tracking with driver_share and platform_share columns
+
+2. **Google Maps Integration** - Location autocomplete with coordinate validation
+   - Centralized singleton loader prevents duplicate API calls
+   - Places autocomplete restricted to Nigeria
+   - Haversine distance calculation for nearby driver search
+   - Coordinate validation before driver search
+
+3. **Paystack Payment Flow** - Complete driver verification and booking payments
+   - Driver verification: ₦5,000 payment endpoint with proper metadata
+   - Booking payment: Server-side amount validation from booking.total_cost
+   - Subaccount creation: For verified drivers to receive split payments
+   - Security: Booking ownership validation, no client-side amount spoofing
+
+4. **Paystack Webhook Handler** - Signature validation and payment confirmation
+   - Verification payment: Marks driver as verified
+   - Booking payment: Updates booking status and creates transaction records
+   - Split calculation: 90/10 split with driver_share and platform_share
+
+5. **Supabase Realtime Subscriptions** - Instant updates across all dashboards
+   - Client dashboard: Driver status changes (online/offline) auto-refresh
+   - Driver dashboard: Booking requests with instant toast notifications
+   - Admin dashboard: Platform-wide booking, driver, and client changes
+   - Proper cleanup: All subscriptions unsubscribe on component unmount
+
+### 🔨 In Progress / Planned Enhancements
 - Push notifications via OneSignal
 - In-app chat between driver and client
 - Advanced analytics with charts (Recharts)
 - Batch payout processing
 - Rating and review system
-- Trip history export
+- Trip history export and PDF receipts
 - Geofencing alerts
-- Route optimization
+- Route optimization with Distance Matrix API
