@@ -12,6 +12,12 @@ import { getDriverPendingSettlements, processDriverPayout, getDriverPayoutHistor
 // Route service
 import { getRealDistanceAndDuration, isWithinGeofence, getOptimizedRoute, calculateETA } from './services/routeService';
 
+// Bank account service
+import { verifyBankAccount, updateDriverBankDetails, getNigerianBanks } from './services/bankAccountService';
+
+// Completion payout service
+import { processCompletionPayout } from './services/completionPayoutService';
+
 // Server should use service role key for full database access
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -507,12 +513,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .eq('id', metadata.booking_id);
 
           const bookingAmount = amount / 100;
-          // Calculate split: 90% driver, 10% platform
-          const platformShare = bookingAmount * 0.10;
-          const driverShare = bookingAmount * 0.90;
-
+          
           // Create transaction record
-          // Mark as settled=true because webhook confirms successful payment
+          // Mark as settled=false - will be settled when driver completes and confirms
           await supabase
             .from('transactions')
             .insert([{
@@ -520,11 +523,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               driver_id: metadata.driver_id,
               paystack_ref: reference,
               amount: bookingAmount,
-              driver_share: driverShare,
-              platform_share: platformShare,
-              split_code: metadata.split_code,
+              driver_share: 0, // Will be calculated on completion
+              platform_share: 0, // Will be calculated on completion
               transaction_type: 'booking',
-              settled: true,
+              settled: false,
               created_at: new Date().toISOString(),
             }]);
         }
@@ -644,7 +646,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid booking amount" });
       }
 
-      // Prepare payment request
+      // Prepare payment request - simple charge, no split yet
+      // Money stays in platform balance until completion is confirmed
       const paymentData: any = {
         email: booking.client?.email,
         amount: Math.round(bookingAmount * 100), // Convert to kobo
@@ -656,14 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         callback_url: `${process.env.VITE_SUPABASE_URL || ''}/client/bookings`,
       };
 
-      // Add split payment if driver has subaccount
-      // The subaccount was created with percentage_charge=10, so Paystack will
-      // automatically split: 90% to driver's subaccount, 10% to platform
-      if (booking.driver?.paystack_subaccount_code) {
-        paymentData.subaccount = booking.driver.paystack_subaccount_code;
-      }
-
-      // Initialize Paystack payment
+      // Initialize Paystack payment (no split - hold funds in platform balance)
       const response = await fetch('https://api.paystack.co/transaction/initialize', {
         method: 'POST',
         headers: {
@@ -1166,7 +1162,323 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
-  // PAYOUT ENDPOINTS
+  // BANK ACCOUNT MANAGEMENT ENDPOINTS
+  // ============================================================================
+
+  // Get list of Nigerian banks
+  app.get("/api/banks", async (req, res) => {
+    try {
+      const banks = await getNigerianBanks();
+      res.json(banks);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch banks" });
+    }
+  });
+
+  // Update driver bank details
+  app.post("/api/drivers/bank-account", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(403).json({ error: "Only drivers can set bank accounts" });
+      }
+
+      const { bank_code, account_number } = req.body;
+
+      if (!bank_code || !account_number) {
+        return res.status(400).json({ error: "Bank code and account number required" });
+      }
+
+      const result = await updateDriverBankDetails(
+        driver.id,
+        bank_code,
+        account_number
+      );
+
+      if (result.success) {
+        res.json({
+          success: true,
+          account_name: result.account_name,
+        });
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ============================================================================
+  // COMPLETION CONFIRMATION ENDPOINTS
+  // ============================================================================
+
+  // Driver confirms completion
+  app.post("/api/bookings/:id/driver-confirm", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(403).json({ error: "Only drivers can confirm" });
+      }
+
+      const { id: bookingId } = req.params;
+
+      // Verify booking belongs to driver
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .eq('driver_id', driver.id)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Update driver confirmation
+      await supabase
+        .from('bookings')
+        .update({
+          driver_confirmed: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
+
+      // Check if both confirmed
+      if (booking.client_confirmed) {
+        // Process payout
+        const result = await processCompletionPayout(bookingId);
+        if (result.success) {
+          res.json({
+            success: true,
+            message: 'Completion confirmed. Payment processed.',
+          });
+        } else {
+          res.json({
+            success: true,
+            message: 'Completion confirmed. Payment processing pending.',
+            payout_error: result.error,
+          });
+        }
+      } else {
+        res.json({
+          success: true,
+          message: 'Waiting for client confirmation',
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Client confirms completion
+  app.post("/api/bookings/:id/client-confirm", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) {
+        return res.status(403).json({ error: "Only clients can confirm" });
+      }
+
+      const { id: bookingId } = req.params;
+
+      // Verify booking belongs to client
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .eq('client_id', client.id)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Update client confirmation
+      await supabase
+        .from('bookings')
+        .update({
+          client_confirmed: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
+
+      // Check if both confirmed
+      if (booking.driver_confirmed) {
+        // Process payout
+        const result = await processCompletionPayout(bookingId);
+        if (result.success) {
+          res.json({
+            success: true,
+            message: 'Completion confirmed. Payment processed.',
+          });
+        } else {
+          res.json({
+            success: true,
+            message: 'Completion confirmed. Payment processing pending.',
+            payout_error: result.error,
+          });
+        }
+      } else {
+        res.json({
+          success: true,
+          message: 'Waiting for driver confirmation',
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ============================================================================
+  // PLATFORM SETTINGS ENDPOINTS (Admin)
+  // ============================================================================
+
+  // Get platform settings
+  app.get("/api/admin/settings", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { data: settings } = await supabase
+        .from('platform_settings')
+        .select('*')
+        .order('setting_key');
+
+      res.json(settings || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Update commission percentage (super admin only)
+  app.put("/api/admin/settings/commission", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify super admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('role', 'super_admin')
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Super admin access required" });
+      }
+
+      const { commission_percentage } = req.body;
+
+      if (commission_percentage === undefined || commission_percentage < 0 || commission_percentage > 100) {
+        return res.status(400).json({ error: "Commission must be between 0 and 100" });
+      }
+
+      const { error } = await supabase
+        .from('platform_settings')
+        .update({
+          setting_value: commission_percentage.toString(),
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('setting_key', 'commission_percentage');
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to update commission" });
+      }
+
+      res.json({
+        success: true,
+        commission_percentage,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ============================================================================
+  // PAYOUT ENDPOINTS (LEGACY - TO BE REMOVED)
   // ============================================================================
 
   // Get driver's pending settlements

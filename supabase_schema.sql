@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS drivers (
   verified BOOLEAN DEFAULT FALSE,
   verification_payment_ref TEXT,
   paystack_subaccount TEXT,
+  bank_code TEXT,
+  account_number TEXT,
+  account_name TEXT,
+  paystack_recipient_code TEXT,
   hourly_rate NUMERIC NOT NULL,
   online_status TEXT CHECK (online_status IN ('online', 'offline')) DEFAULT 'offline',
   current_location JSONB,
@@ -56,6 +60,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   total_cost NUMERIC NOT NULL,
   payment_status TEXT CHECK (payment_status IN ('pending', 'paid', 'failed', 'refunded')) DEFAULT 'pending',
   booking_status TEXT CHECK (booking_status IN ('pending', 'accepted', 'ongoing', 'completed', 'cancelled')) DEFAULT 'pending',
+  driver_confirmed BOOLEAN DEFAULT FALSE,
+  client_confirmed BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -145,22 +151,23 @@ CREATE TABLE IF NOT EXISTS notification_logs (
 );
 
 -- ============================================================================
--- PAYOUTS TABLE (Driver Payment Settlement)
+-- PLATFORM SETTINGS TABLE (Commission and Configuration)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS payouts (
+CREATE TABLE IF NOT EXISTS platform_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  driver_id UUID NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
-  amount NUMERIC NOT NULL CHECK (amount > 0),
-  transaction_ids UUID[] NOT NULL, -- Array of transaction IDs included in this payout
-  paystack_transfer_code TEXT,
-  paystack_transfer_id TEXT,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'completed', 'failed')) DEFAULT 'pending',
-  failure_reason TEXT,
-  initiated_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ,
+  setting_key TEXT NOT NULL UNIQUE,
+  setting_value TEXT NOT NULL,
+  description TEXT,
+  updated_by UUID REFERENCES auth.users(id),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Insert default commission setting
+INSERT INTO platform_settings (setting_key, setting_value, description)
+VALUES ('commission_percentage', '10', 'Platform commission percentage (0-100)')
+ON CONFLICT (setting_key) DO NOTHING;
 
 -- ============================================================================
 -- INDEXES FOR PERFORMANCE
@@ -192,9 +199,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_prefs_user_id ON notification_prefer
 CREATE INDEX IF NOT EXISTS idx_notification_logs_user_id ON notification_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_notification_logs_read ON notification_logs(read_at);
 
-CREATE INDEX IF NOT EXISTS idx_payouts_driver_id ON payouts(driver_id);
-CREATE INDEX IF NOT EXISTS idx_payouts_status ON payouts(status);
-CREATE INDEX IF NOT EXISTS idx_payouts_created_at ON payouts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_platform_settings_key ON platform_settings(setting_key);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -210,7 +215,7 @@ ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payouts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_settings ENABLE ROW LEVEL SECURITY;
 
 -- Drivers Policies
 CREATE POLICY "Drivers can view their own profile"
@@ -387,19 +392,17 @@ CREATE POLICY "Users can update their own notification read status"
   ON notification_logs FOR UPDATE
   USING (auth.uid() = user_id);
 
--- Payouts Policies
-CREATE POLICY "Drivers can view their own payouts"
-  ON payouts FOR SELECT
-  USING (
-    driver_id IN (SELECT id FROM drivers WHERE user_id = auth.uid())
-  );
+-- Platform Settings Policies
+CREATE POLICY "Anyone can view platform settings"
+  ON platform_settings FOR SELECT
+  USING (TRUE);
 
-CREATE POLICY "Admins can view all payouts"
-  ON payouts FOR ALL
+CREATE POLICY "Only super admins can update platform settings"
+  ON platform_settings FOR ALL
   USING (
     EXISTS (
       SELECT 1 FROM admin_users
-      WHERE user_id = auth.uid() AND is_active = TRUE
+      WHERE user_id = auth.uid() AND role = 'super_admin' AND is_active = TRUE
     )
   );
 
