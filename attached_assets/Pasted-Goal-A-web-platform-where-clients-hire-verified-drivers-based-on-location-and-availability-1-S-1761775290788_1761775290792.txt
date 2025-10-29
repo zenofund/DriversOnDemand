@@ -1,0 +1,391 @@
+Goal: A web platform where clients hire verified drivers based on location and availability.
+
+1. System Architecture Overview
+Core Components
+
+Frontend: React + Vite (SPA)
+
+Backend: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
+
+Payments: Paystack (API + Split payments)
+
+Map/GPS: Google Maps or Mapbox API
+
+Hosting: Vercel / Netlify (Frontend) + Supabase (Backend)
+
+State Management: React Query (for async safety) + Zustand or Context for global state
+
+2. Database Schema (Supabase Tables)
+🧑‍✈️ Drivers Table
+Column	Type	Description
+id	UUID	Primary key
+full_name	text	Driver name
+phone	text	Contact
+email	text	Login identity
+license_no	text	Driver’s license
+verified	boolean	True after ₦5,000 verification
+verification_payment_ref	text	Paystack reference
+hourly_rate	numeric	Hourly booking rate
+online_status	enum('online','offline')	Availability
+current_location	geography(point)	Live geolocation
+rating	numeric	Average rating
+created_at	timestamp	Signup date
+🚘 Clients Table
+Column	Type	Description
+id	UUID	Primary key
+full_name	text	Client name
+email	text	Login identity
+phone	text	Contact
+verified	boolean	Optional (for premium accounts)
+created_at	timestamp	Account date
+📅 Bookings Table
+Column	Type	Description
+id	UUID	Primary key
+client_id	UUID	Linked to clients.id
+driver_id	UUID	Linked to drivers.id
+start_location	text	Pickup address
+destination	text	Drop-off address
+distance_km	numeric	Calculated from map
+duration_hr	numeric	Estimated time
+total_cost	numeric	Paystack-calculated
+payment_status	enum('pending','paid','failed','refunded')	Payment lifecycle
+booking_status	enum('pending','accepted','ongoing','completed','cancelled')	Booking lifecycle
+created_at	timestamp	Created time
+updated_at	timestamp	Status updates
+💸 Transactions Table
+Column	Type	Description
+id	UUID	Primary key
+booking_id	UUID	Link to booking
+paystack_ref	text	Reference for reconciliation
+amount	numeric	Total amount
+split_code	text	App + Driver split
+settled	boolean	If payout completed
+created_at	timestamp	Logged on payment
+3. Authentication & Verification Flow
+🧾 Step 1: Driver Registration
+
+Driver fills registration form → Supabase Auth creates account.
+
+Driver redirected to “Verification Payment” page.
+
+On Paystack success callback:
+
+Record verification_payment_ref.
+
+Set verified = true.
+
+Admin reviews uploaded documents (optional manual approval).
+
+Driver dashboard unlocked after verification.
+
+Avoid Infinite Loops:
+
+Use React Query to fetch verification status once on mount.
+
+Only re-fetch when isSuccess or payment_status changes, not continuously.
+
+Example:
+
+const { data: driver } = useQuery(['driver', user.id], fetchDriver, {
+  refetchOnWindowFocus: false,
+  retry: false,
+});
+
+4. Driver Availability Workflow
+🟢 Online/Offline Toggle
+
+Driver sets availability via a toggle in the dashboard.
+
+Updates online_status in Supabase.
+
+Supabase real-time channel broadcasts driver status to all clients in region.
+
+Realtime subscription example:
+
+supabase.channel('drivers-status')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, payload => {
+    updateDriverList(payload.new);
+  })
+  .subscribe();
+
+
+Infinite Loop Prevention:
+
+Store local driverStatus in React state and compare before writing to Supabase.
+
+Update only when the state actually changes.
+
+5. Client Search & Booking Flow
+Search Flow
+
+Client enters pickup and destination.
+
+Calculate distance/time using Maps API.
+
+Query Supabase for nearby drivers:
+
+SELECT * FROM drivers 
+WHERE online_status='online' 
+AND ST_Distance(current_location, ST_MakePoint($lon, $lat)) < 10000;
+
+
+Display available drivers with distance and hourly rate.
+
+Booking Flow
+
+Client selects driver and duration.
+
+Frontend calculates total cost = hourly_rate × hours.
+
+Client pays via Paystack.
+
+On success, Supabase bookings record is created:
+
+payment_status = 'paid'
+
+booking_status = 'pending'
+
+Notify driver (realtime channel) to accept or decline.
+
+Avoid Infinite Fetches:
+
+Use React Query polling for booking updates, e.g. every 15 seconds — not on every render.
+
+Unsubscribe once status = “completed”.
+
+6. Payment Split Flow (Paystack Integration)
+Paystack Actions
+
+Create subaccount for each driver on signup:
+
+Store subaccount code in drivers.paystack_subaccount.
+
+Each booking uses Split Payment:
+
+App Commission: Configurable (e.g. 10%)
+
+Driver Share: 90%
+
+Use backend API (Supabase Edge Function or secure server) to:
+
+Generate Paystack transaction.
+
+Handle webhook callback.
+
+Update transactions + bookings.
+
+Safety Measures
+
+Validate webhook signature to prevent spoofing.
+
+If payment fails, mark booking as cancelled and notify both users.
+
+Avoid re-processing payments on frontend retry clicks (use transaction state lock).
+
+7. Real-Time Updates & Notifications
+Driver Dashboard
+
+Shows active bookings, payout history, and rating.
+
+Realtime updates via Supabase Channels (no manual refresh needed).
+
+Client Dashboard
+
+Booking status updates (“Driver on the way”, “Trip started”, etc.)
+
+Push notifications via Supabase or OneSignal integration.
+
+Admin Dashboard
+
+Manage all users and bookings with live analytics.
+
+Charts: Active drivers, completed trips, total revenue, commission summary.
+
+Realtime Efficiency Tip:
+Use presence channels or filtered subscriptions (limit to logged-in user’s region) to reduce unnecessary updates and CPU load.
+
+8. Error Handling & UX Resilience
+Case	Handling Strategy
+Slow API	Show skeleton loader + retry once
+Missing data	Fallback message + refetch button
+Connection loss	Offline banner with local cache (React Query + IndexedDB)
+Payment interruption	Transaction lock prevents duplicate charges
+Infinite rerender	Always wrap async calls in useEffect(() => {}, [dependencies]) with stable deps
+Stale state	Use React Query cache invalidation after mutations
+9. Deployment & Optimization
+
+Frontend: Build with Vite, deploy on Vercel/Netlify.
+
+Backend (Supabase): Hosted automatically with database, auth, and storage.
+
+Environment Variables: Store Paystack keys and Google Maps API securely in .env.
+
+Caching: Enable HTTP caching and Supabase row-level security (RLS) for performance.
+
+Monitoring: Connect Logflare or Supabase Studio for real-time error tracking.
+
+
+ADMIN MODULE OVERVIEW
+🎯 Purpose
+
+Admins are responsible for:
+
+Overseeing the entire ecosystem (drivers, clients, and bookings)
+
+Approving driver verifications (optional manual review)
+
+Monitoring transactions, payouts, and commissions
+
+Handling user reports or disputes
+
+Managing analytics dashboards
+
+🧩 Admin Features
+Feature	Description
+🔐 Login & Role-Based Access	Admins log in via Supabase Auth but tagged as role = 'admin'.
+👥 User Management	View, search, and manage all drivers and clients. Suspend or re-verify accounts.
+💳 Payment Monitoring	View transactions, filter by Paystack status, confirm settlements.
+📦 Booking Oversight	Track all bookings (pending → completed). Resolve disputes if needed.
+📊 Analytics Dashboard	View real-time data: active drivers, total trips, revenue, payout ratio.
+📢 Notifications	Send announcements or messages to drivers and clients (optional).
+🧾 Verification Review	Optionally review driver documents before enabling full verification.
+🗄️ Database Additions for Admin
+🧑‍💼 admin_users Table
+Column	Type	Description
+id	UUID	Primary key
+name	text	Admin full name
+email	text	Login credential
+password	text	Encrypted (Supabase Auth or local hash)
+role	enum('super_admin','moderator')	Defines privileges
+permissions	jsonb	Customizable feature access
+last_login	timestamp	Tracks last access
+is_active	boolean	Enables/disables admin account
+created_at	timestamp	Record created date
+🧠 Admin Functional Workflow
+1️⃣ Login
+
+Admin logs in through the same Supabase Auth system.
+
+Role determined by admin_users.role field.
+
+Redirect to /admin/dashboard after successful login.
+
+2️⃣ Driver Verification Oversight
+
+View all drivers who paid ₦5,000 verification fee.
+
+Option to:
+
+Approve (mark as verified = true)
+
+Reject (refund manually if required)
+
+Upload or view driver’s license documents stored in Supabase Storage.
+
+3️⃣ Monitor Bookings
+
+Real-time bookings feed powered by Supabase Realtime:
+
+supabase.channel('bookings')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingUpdate)
+  .subscribe();
+
+
+Can change booking status manually in emergencies (e.g., “cancelled by admin”).
+
+4️⃣ Track Payments & Payouts
+
+Integrate with Paystack’s Transaction API for verification:
+
+Confirm webhook authenticity.
+
+Match Paystack ref with transactions.paystack_ref.
+
+Admin can view:
+
+Total revenue
+
+Driver share vs. App commission
+
+Pending or failed settlements
+
+5️⃣ Analytics Dashboard
+
+Show at-a-glance system KPIs:
+
+🚗 Active drivers
+
+🧍 Clients served
+
+💰 Total income this month
+
+💸 Commission earned
+
+📅 Trips completed today
+
+Charts can use Recharts or Nivo libraries with Supabase queries.
+
+🧰 Developer Implementation Guide
+Frontend (Admin Panel)
+
+Create src/pages/admin/ folder with:
+
+Dashboard.jsx
+
+Drivers.jsx
+
+Clients.jsx
+
+Bookings.jsx
+
+Transactions.jsx
+
+Settings.jsx
+
+Implement route protection using Supabase Auth session check:
+
+if (user?.role !== 'admin') navigate('/login');
+
+Backend (Supabase Policies)
+
+Apply Row Level Security (RLS):
+
+create policy "Admins can read everything"
+on public.bookings
+for select
+using (auth.role() = 'admin');
+
+
+Restrict driver and client views to their own data only.
+
+Realtime Admin Dashboard
+
+Use React Query to fetch stats once.
+
+Use Supabase Channels for live updates instead of loops.
+
+Cache data in Zustand for smoother transitions between pages.
+
+🔒 Admin Safety Controls
+
+Session timeout + 2FA (optional Supabase extension)
+
+All actions logged in audit_logs table for transparency
+
+API keys stored in .env and never exposed in frontend
+
+Admin role cannot make direct Paystack charges — only review
+
+✅ End-to-End Workflow Summary
+
+Driver registers → pays ₦5,000 → verified → online.
+
+Client searches → finds available driver → books → pays via Paystack.
+
+System splits payment → driver notified → accepts booking.
+
+Driver executes trip → client confirms → payout auto-processed.
+
+Both rate each other → data updates in real time.
+
+Admin oversees entire lifecycle and finances.
