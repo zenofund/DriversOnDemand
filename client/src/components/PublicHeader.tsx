@@ -40,25 +40,19 @@ export function PublicHeader() {
               <span>5,000+ Verified Drivers</span>
             </div>
             <Link href="/auth/login">
-              <a>
-                <Button variant="ghost" data-testid="button-login">
-                  Log In
-                </Button>
-              </a>
+              <Button variant="ghost" data-testid="button-login" asChild>
+                <a>Log In</a>
+              </Button>
             </Link>
             <Link href="/auth/signup?role=driver">
-              <a>
-                <Button variant="default" data-testid="button-signup-driver">
-                  Sign Up as Driver
-                </Button>
-              </a>
+              <Button variant="default" data-testid="button-signup-driver" asChild>
+                <a>Sign Up as Driver</a>
+              </Button>
             </Link>
             <Link href="/auth/signup?role=client">
-              <a>
-                <Button variant="secondary" data-testid="button-signup-client">
-                  Book a Driver
-                </Button>
-              </a>
+              <Button variant="secondary" data-testid="button-signup-client" asChild>
+                <a>Book a Driver</a>
+              </Button>
             </Link>
           </div>
 
@@ -92,25 +86,19 @@ export function PublicHeader() {
             </nav>
             <div className="flex flex-col gap-2 px-4">
               <Link href="/auth/login">
-                <a className="w-full">
-                  <Button variant="ghost" className="w-full" data-testid="button-login-mobile">
-                    Log In
-                  </Button>
-                </a>
+                <Button variant="ghost" className="w-full" data-testid="button-login-mobile" asChild>
+                  <a>Log In</a>
+                </Button>
               </Link>
               <Link href="/auth/signup?role=driver">
-                <a className="w-full">
-                  <Button variant="default" className="w-full" data-testid="button-signup-driver-mobile">
-                    Sign Up as Driver
-                  </Button>
-                </a>
+                <Button variant="default" className="w-full" data-testid="button-signup-driver-mobile" asChild>
+                  <a>Sign Up as Driver</a>
+                </Button>
               </Link>
               <Link href="/auth/signup?role=client">
-                <a className="w-full">
-                  <Button variant="secondary" className="w-full" data-testid="button-signup-client-mobile">
-                    Book a Driver
-                  </Button>
-                </a>
+                <Button variant="secondary" className="w-full" data-testid="button-signup-client-mobile" asChild>
+                  <a>Book a Driver</a>
+                </Button>
               </Link>
             </div>
           </div>
