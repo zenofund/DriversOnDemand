@@ -17,14 +17,33 @@ let loaderPromise: Promise<void> | null = null;
 function getGoogleMapsLoader() {
   if (!loaderPromise) {
     loaderPromise = (async () => {
+      // Check if already loaded
+      if (window.google?.maps?.places) {
+        return;
+      }
+
       // Load the Google Maps JavaScript API script
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}&libraries=places&loading=async`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}&libraries=places&callback=Function.prototype`;
       script.async = true;
       script.defer = true;
       
       const loadPromise = new Promise<void>((resolve, reject) => {
-        script.onload = () => resolve();
+        script.onload = () => {
+          // Wait a bit for the libraries to initialize
+          const checkLoaded = setInterval(() => {
+            if (window.google?.maps?.places) {
+              clearInterval(checkLoaded);
+              resolve();
+            }
+          }, 50);
+          
+          // Timeout after 5 seconds
+          setTimeout(() => {
+            clearInterval(checkLoaded);
+            reject(new Error('Google Maps Places library failed to load'));
+          }, 5000);
+        };
         script.onerror = () => reject(new Error('Failed to load Google Maps'));
       });
       
@@ -58,7 +77,13 @@ export function LocationAutocomplete({
   }, []);
 
   useEffect(() => {
-    if (!isLoaded || !inputRef.current || !window.google) return;
+    if (!isLoaded || !inputRef.current) return;
+    
+    // Ensure Google Maps and places library are fully loaded
+    if (!window.google?.maps?.places?.Autocomplete) {
+      console.warn('Google Maps Places library not yet loaded');
+      return;
+    }
 
     // Initialize autocomplete
     autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
@@ -80,7 +105,7 @@ export function LocationAutocomplete({
     });
 
     return () => {
-      if (listener) {
+      if (listener && window.google?.maps?.event) {
         window.google.maps.event.removeListener(listener);
       }
     };
