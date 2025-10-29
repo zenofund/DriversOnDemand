@@ -1,6 +1,6 @@
+/// <reference types="@types/google.maps" />
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Loader } from '@googlemaps/js-api-loader';
 
 interface LocationAutocompleteProps {
   value: string;
@@ -12,15 +12,25 @@ interface LocationAutocompleteProps {
 }
 
 // Singleton loader to avoid loading Google Maps multiple times
-let loaderPromise: Promise<typeof google> | null = null;
+let loaderPromise: Promise<void> | null = null;
 
 function getGoogleMapsLoader() {
   if (!loaderPromise) {
-    const loader = new Loader({
-      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-      libraries: ['places'],
-    });
-    loaderPromise = loader.load();
+    loaderPromise = (async () => {
+      // Load the Google Maps JavaScript API script
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}&libraries=places&loading=async`;
+      script.async = true;
+      script.defer = true;
+      
+      const loadPromise = new Promise<void>((resolve, reject) => {
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load Google Maps'));
+      });
+      
+      document.head.appendChild(script);
+      await loadPromise;
+    })();
   }
   return loaderPromise;
 }
