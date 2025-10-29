@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { DriverCard } from '@/components/DriverCard';
+import { LocationAutocomplete } from '@/components/LocationAutocomplete';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
+import { calculateDistance } from '@/lib/distance';
 import { MapPin, Search } from 'lucide-react';
 import type { Driver } from '@shared/schema';
 
@@ -20,6 +21,7 @@ export default function ClientDashboard() {
   const { toast } = useToast();
   const {
     pickupLocation,
+    pickupCoords,
     destination,
     setPickupLocation,
     setDestination,
@@ -97,13 +99,13 @@ export default function ClientDashboard() {
                   <div className="space-y-2">
                     <Label htmlFor="pickup">Pickup Location</Label>
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
+                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                      <LocationAutocomplete
                         id="pickup"
                         placeholder="Enter pickup address"
                         className="pl-10"
                         value={pickupLocation}
-                        onChange={(e) => setPickupLocation(e.target.value, { lat: 0, lng: 0 })}
+                        onChange={(address, coords) => setPickupLocation(address, coords)}
                         data-testid="input-pickup"
                       />
                     </div>
@@ -112,13 +114,13 @@ export default function ClientDashboard() {
                   <div className="space-y-2">
                     <Label htmlFor="destination">Destination</Label>
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
+                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                      <LocationAutocomplete
                         id="destination"
                         placeholder="Enter destination address"
                         className="pl-10"
                         value={destination}
-                        onChange={(e) => setDestination(e.target.value, { lat: 0, lng: 0 })}
+                        onChange={(address, coords) => setDestination(address, coords)}
                         data-testid="input-destination"
                       />
                     </div>
@@ -165,14 +167,27 @@ export default function ClientDashboard() {
 
                 {!isLoading && nearbyDrivers.length > 0 && (
                   <div className="space-y-4">
-                    {nearbyDrivers.map((driver) => (
-                      <DriverCard
-                        key={driver.id}
-                        driver={driver}
-                        distance={Math.random() * 10 + 1}
-                        onSelect={handleSelectDriver}
-                      />
-                    ))}
+                    {nearbyDrivers.map((driver) => {
+                      // Calculate real distance from pickup location to driver
+                      const driverCoords = driver.current_location as { lat: number; lng: number } | null;
+                      const distance = pickupCoords && driverCoords
+                        ? calculateDistance(
+                            pickupCoords.lat,
+                            pickupCoords.lng,
+                            driverCoords.lat,
+                            driverCoords.lng
+                          )
+                        : 0;
+
+                      return (
+                        <DriverCard
+                          key={driver.id}
+                          driver={driver}
+                          distance={distance}
+                          onSelect={handleSelectDriver}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>
