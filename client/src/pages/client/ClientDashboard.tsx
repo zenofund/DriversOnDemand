@@ -59,6 +59,16 @@ export default function ClientDashboard() {
       return;
     }
 
+    // Validate that coordinates are set (not 0,0)
+    if (!pickupCoords || (pickupCoords.lat === 0 && pickupCoords.lng === 0)) {
+      toast({
+        title: 'Invalid pickup location',
+        description: 'Please select a valid address from the suggestions',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSearchQuery(`${pickupLocation}-${destination}`);
     setShowDrivers(true);
   };

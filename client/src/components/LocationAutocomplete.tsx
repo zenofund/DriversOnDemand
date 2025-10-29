@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Loader as LoaderInstance } from '@googlemaps/js-api-loader';
+import { Loader } from '@googlemaps/js-api-loader';
 
 interface LocationAutocompleteProps {
   value: string;
@@ -9,6 +9,20 @@ interface LocationAutocompleteProps {
   className?: string;
   id?: string;
   'data-testid'?: string;
+}
+
+// Singleton loader to avoid loading Google Maps multiple times
+let loaderPromise: Promise<typeof google> | null = null;
+
+function getGoogleMapsLoader() {
+  if (!loaderPromise) {
+    const loader = new Loader({
+      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+      libraries: ['places'],
+    });
+    loaderPromise = loader.load();
+  }
+  return loaderPromise;
 }
 
 export function LocationAutocomplete({
@@ -24,25 +38,22 @@ export function LocationAutocomplete({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   useEffect(() => {
-    const loader = new LoaderInstance({
-      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-      libraries: ['places'],
-    });
-
-    loader.load().then(() => {
-      setIsLoaded(true);
-    }).catch((error) => {
-      console.error('Error loading Google Maps:', error);
-    });
+    getGoogleMapsLoader()
+      .then(() => {
+        setIsLoaded(true);
+      })
+      .catch((error: Error) => {
+        console.error('Error loading Google Maps:', error);
+      });
   }, []);
 
   useEffect(() => {
-    if (!isLoaded || !inputRef.current) return;
+    if (!isLoaded || !inputRef.current || !window.google) return;
 
     // Initialize autocomplete
-    autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
       componentRestrictions: { country: 'ng' }, // Restrict to Nigeria
-      fields: ['formatted_address', 'geometry'],
+      fields: ['formatted_address', 'geometry', 'place_id'],
     });
 
     // Handle place selection
@@ -60,7 +71,7 @@ export function LocationAutocomplete({
 
     return () => {
       if (listener) {
-        google.maps.event.removeListener(listener);
+        window.google.maps.event.removeListener(listener);
       }
     };
   }, [isLoaded, onChange]);
