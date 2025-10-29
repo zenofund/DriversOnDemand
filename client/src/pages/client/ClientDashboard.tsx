@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { calculateDistance } from '@/lib/distance';
 import { MapPin, Search } from 'lucide-react';
 import type { Driver } from '@shared/schema';
@@ -42,6 +43,31 @@ export default function ClientDashboard() {
     enabled: showDrivers && !!searchQuery,
     refetchOnWindowFocus: false,
   });
+
+  // Subscribe to driver status changes
+  useEffect(() => {
+    if (!showDrivers) return;
+
+    const channel = supabase
+      .channel('driver-status-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'drivers',
+        },
+        () => {
+          // Refetch nearby drivers when any driver's status changes (online/offline)
+          queryClient.invalidateQueries({ queryKey: ['/api/drivers/nearby'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [showDrivers]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

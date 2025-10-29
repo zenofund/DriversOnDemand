@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { Users, Car, DollarSign, TrendingUp } from 'lucide-react';
 import type { DashboardStats } from '@shared/schema';
 
@@ -28,7 +29,58 @@ export default function AdminDashboard() {
   const { data: recentBookings = [] } = useQuery({
     queryKey: ['/api/admin/recent-bookings'],
     enabled: !!user && role === 'admin',
+    refetchOnWindowFocus: false,
   });
+
+  // Subscribe to platform-wide changes for real-time updates
+  useEffect(() => {
+    if (!user || role !== 'admin') return;
+
+    const channel = supabase
+      .channel('admin-platform-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+        },
+        () => {
+          // Refetch stats and bookings when any booking changes
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/recent-bookings'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'drivers',
+        },
+        () => {
+          // Refetch stats when new drivers register
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'clients',
+        },
+        () => {
+          // Refetch stats when new clients register
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user, role]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

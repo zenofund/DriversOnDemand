@@ -40,8 +40,42 @@ export default function DriverDashboard() {
   const { data: activeBookings = [] } = useQuery<BookingWithDetails[]>({
     queryKey: ['/api/bookings/active'],
     enabled: !!user,
-    refetchInterval: 15000,
+    refetchOnWindowFocus: false,
   });
+
+  // Subscribe to booking changes for real-time updates
+  useEffect(() => {
+    if (!user || !profile) return;
+
+    const channel = supabase
+      .channel('booking-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+          filter: `driver_id=eq.${(profile as Driver).id}`,
+        },
+        (payload) => {
+          // Refetch active bookings when bookings change
+          queryClient.invalidateQueries({ queryKey: ['/api/bookings/active'] });
+          
+          // Show toast for new bookings
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: 'New booking request!',
+              description: 'You have a new booking request',
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user, profile, toast]);
 
   const { data: stats } = useQuery({
     queryKey: ['/api/drivers/stats'],
