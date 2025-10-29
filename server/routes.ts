@@ -534,6 +534,224 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PAYSTACK PAYMENT INITIALIZATION
   // ============================================================================
 
+  // Initialize driver verification payment
+  app.post("/api/payments/verify-driver", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Get driver
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id, email, full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(404).json({ error: "Driver not found" });
+      }
+
+      // Initialize Paystack payment
+      const response = await fetch('https://api.paystack.co/transaction/initialize', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${PAYSTACK_SECRET}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: driver.email,
+          amount: 500000, // ₦5,000 in kobo
+          metadata: {
+            type: 'verification',
+            driver_id: driver.id,
+            driver_name: driver.full_name,
+          },
+          callback_url: `${process.env.VITE_SUPABASE_URL || ''}/driver/dashboard`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.status) {
+        return res.status(500).json({ error: "Failed to initialize payment" });
+      }
+
+      res.json({
+        authorization_url: data.data.authorization_url,
+        reference: data.data.reference,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Initialize booking payment
+  app.post("/api/payments/initialize-booking", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { bookingId } = req.body;
+
+      // Get booking details with driver info
+      const { data: booking, error: bookingError } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          driver:drivers(id, email, paystack_subaccount_code),
+          client:clients(id, email, user_id)
+        `)
+        .eq('id', bookingId)
+        .single();
+
+      if (bookingError || !booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Verify booking ownership - must belong to authenticated user
+      if (booking.client?.user_id !== user.id) {
+        return res.status(403).json({ error: "Unauthorized - not your booking" });
+      }
+
+      // Use total_cost from booking record (server-side authority)
+      const bookingAmount = booking.total_cost;
+
+      if (!bookingAmount || bookingAmount <= 0) {
+        return res.status(400).json({ error: "Invalid booking amount" });
+      }
+
+      // Prepare payment request
+      const paymentData: any = {
+        email: booking.client?.email,
+        amount: Math.round(bookingAmount * 100), // Convert to kobo
+        metadata: {
+          type: 'booking',
+          booking_id: bookingId,
+          driver_id: booking.driver_id,
+        },
+        callback_url: `${process.env.VITE_SUPABASE_URL || ''}/client/bookings`,
+      };
+
+      // Add split payment if driver has subaccount
+      // The subaccount was created with percentage_charge=10, so Paystack will
+      // automatically split: 90% to driver's subaccount, 10% to platform
+      if (booking.driver?.paystack_subaccount_code) {
+        paymentData.subaccount = booking.driver.paystack_subaccount_code;
+      }
+
+      // Initialize Paystack payment
+      const response = await fetch('https://api.paystack.co/transaction/initialize', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${PAYSTACK_SECRET}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData),
+      });
+
+      const data = await response.json();
+
+      if (!data.status) {
+        return res.status(500).json({ error: "Failed to initialize payment" });
+      }
+
+      res.json({
+        authorization_url: data.data.authorization_url,
+        reference: data.data.reference,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Create Paystack subaccount for driver
+  app.post("/api/payments/create-subaccount", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { bankCode, accountNumber } = req.body;
+
+      // Get driver
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id, email, full_name, verified')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(404).json({ error: "Driver not found" });
+      }
+
+      if (!driver.verified) {
+        return res.status(403).json({ error: "Driver must be verified first" });
+      }
+
+      // Create Paystack subaccount
+      const response = await fetch('https://api.paystack.co/subaccount', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${PAYSTACK_SECRET}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          business_name: driver.full_name,
+          settlement_bank: bankCode,
+          account_number: accountNumber,
+          percentage_charge: 10, // Platform takes 10%
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.status) {
+        return res.status(500).json({ error: data.message || "Failed to create subaccount" });
+      }
+
+      // Save subaccount code to driver profile
+      await supabase
+        .from('drivers')
+        .update({
+          paystack_subaccount_code: data.data.subaccount_code,
+        })
+        .eq('id', driver.id);
+
+      res.json({
+        subaccount_code: data.data.subaccount_code,
+        message: "Subaccount created successfully",
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   app.post("/api/payments/initialize", async (req, res) => {
     try {
       const { email, amount, metadata } = req.body;
