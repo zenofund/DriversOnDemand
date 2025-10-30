@@ -202,6 +202,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // BOOKING ENDPOINTS
   // ============================================================================
 
+  // Get all bookings for a client
+  app.get("/api/bookings/client", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Get client profile
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) {
+        return res.status(403).json({ error: "Only clients can access this endpoint" });
+      }
+
+      // Get all bookings for this client with driver details
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          driver:drivers(full_name, phone, rating)
+        `)
+        .eq('client_id', client.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching client bookings:', error);
+        return res.status(500).json({ error: "Failed to fetch bookings" });
+      }
+
+      res.json(bookings || []);
+    } catch (error) {
+      console.error('Server error:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Get active bookings for driver
   app.get("/api/bookings/active", async (req, res) => {
     try {

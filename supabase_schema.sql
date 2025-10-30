@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS drivers (
   full_name TEXT NOT NULL,
   phone TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
-  license_no TEXT NOT NULL,
+  license_no TEXT, -- Nullable: drivers provide this during profile completion
   verified BOOLEAN DEFAULT FALSE,
   verification_payment_ref TEXT,
   paystack_subaccount TEXT,

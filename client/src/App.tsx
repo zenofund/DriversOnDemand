@@ -13,6 +13,7 @@ import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import DriverDashboard from "@/pages/driver/DriverDashboard";
 import ClientDashboard from "@/pages/client/ClientDashboard";
+import MyBookings from "@/pages/client/MyBookings";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import NotFound from "@/pages/not-found";
 
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/auth/signup" component={Signup} />
       <Route path="/driver/dashboard" component={DriverDashboard} />
       <Route path="/client/dashboard" component={ClientDashboard} />
+      <Route path="/client/bookings" component={MyBookings} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

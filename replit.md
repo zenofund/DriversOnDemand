@@ -1,344 +1,42 @@
 # Drivers On Demand
 
-A production-ready full-stack driver booking platform built with React, Vite, Supabase, and Paystack.
-
 ## Overview
-
-Drivers On Demand connects clients with verified professional drivers in real-time. The platform features role-based dashboards for drivers, clients, and admins, with real-time updates, secure payment processing, and location-based driver search.
-
-## Tech Stack
-
-### Frontend
-- **React + Vite** - Fast, modern SPA
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
-- **Shadcn UI** - Beautiful, accessible components
-- **React Query (TanStack Query)** - Server state management with optimized caching
-- **Zustand** - Global client state management
-- **Wouter** - Lightweight routing
-- **Lucide React** - Icon library
-
-### Backend
-- **Supabase** - PostgreSQL database with real-time subscriptions
-- **Supabase Auth** - Role-based authentication
-- **Express.js** - API server
-- **Paystack API** - Payment processing with split payments
-
-### External Services
-- **Google Maps API** - Location services and driver tracking
-- **Paystack** - Payment gateway (90/10 split for drivers)
-
-## Architecture
-
-### Database Schema
-
-**Drivers Table**
-- Full profile with license verification
-- Online/offline status
-- Current location (JSONB coordinates)
-- Hourly rate and ratings
-- Paystack subaccount for split payments
-
-**Clients Table**
-- Basic profile information
-- Booking history relationship
-
-**Bookings Table**
-- Complete trip details with coordinates
-- Payment and booking status tracking
-- Real-time updates via Supabase Realtime
-
-**Transactions Table**
-- Paystack reference for reconciliation
-- Split payment tracking with driver_share and platform_share columns
-- Settlement status (settled boolean)
-
-**Admin Users Table**
-- Role-based access (super_admin, moderator)
-- Activity tracking
-
-### Authentication Flow
-
-1. User signs up with role selection (driver/client/admin)
-2. Supabase Auth creates user account
-3. Database trigger automatically creates profile in appropriate table
-4. Role stored in user metadata for access control
-
-### Driver Verification Flow
-
-1. Driver registers and fills profile
-2. System generates ₦5,000 Paystack payment link
-3. Driver pays verification fee
-4. Paystack webhook confirms payment
-5. Driver profile marked as verified
-6. Driver can now go online and receive bookings
-
-### Booking Flow
-
-1. Client enters pickup and destination
-2. System queries nearby online verified drivers
-3. Client selects driver and confirms booking
-4. Client pays upfront - funds held in platform balance
-5. Payment success triggers booking creation
-6. Driver receives real-time notification
-7. Driver accepts/declines booking
-8. Trip proceeds with live status updates
-9. Both driver and client confirm completion
-10. Automatic payout transfer to driver (amount minus commission)
-
-## Key Features
-
-### Driver Dashboard
-- Online/offline toggle with immediate status broadcast
-- Real-time booking requests with accept/decline
-- Earnings tracking (today, total, per trip)
-- Rating display
-- Active bookings management
-
-### Client Dashboard
-- Map-based driver search
-- Real-time driver availability
-- Booking form with cost calculator
-- Trip history and status tracking
-- Driver ratings
-
-### Admin Dashboard
-- Platform analytics (drivers, clients, revenue, trips)
-- User management with verification approval
-- Booking oversight and intervention
-- Transaction monitoring
-- Real-time platform health metrics
-
-## Real-time Features
-
-### Supabase Realtime Channels
-- Driver status updates broadcast to all clients
-- Booking status changes notify relevant parties
-- Location tracking during active trips
-
-### Optimization Strategies
-- React Query caching prevents redundant fetches
-- `refetchOnWindowFocus: false` for static data
-- Replaced polling with Supabase Realtime subscriptions for instant updates
-- Proper dependency arrays in useEffect to avoid infinite loops
-- Realtime subscription cleanup on component unmount
-- Centralized Google Maps loader to prevent duplicate API calls
-
-## Payment Integration
-
-### Paystack Setup
-1. **Driver verification**: One-time ₦5,000 fee via `/api/payments/verify-driver`
-2. **Bank account setup**: Driver adds bank details → Paystack verifies account → Creates transfer recipient
-3. **Upfront payment**: Client pays full amount at booking (no split) → funds held in platform balance
-4. **Completion confirmation**: Both driver and client confirm task completion via separate endpoints
-5. **Automatic payout**: When both confirm → fetch commission from platform_settings → calculate driver share → instant transfer to driver's bank
-6. **Commission**: Configurable by super admin (default 10%), applied at completion time
-7. **Webhook verification**: Signature validation with `x-paystack-signature` header
-8. **Transaction records**: Full reconciliation with driver_share and platform_share (calculated on completion)
-9. **Security**: Atomic transaction claiming prevents duplicate transfers, comprehensive error logging for reconciliation
-10. **Idempotency**: Deterministic transfer references ensure Paystack rejects duplicates
-
-### Security
-- Webhook signature validation prevents spoofing
-- Transaction locks prevent duplicate charges
-- Payment status tracking (pending → paid → settled)
-- RLS policies restrict data access by role
-
-## Row-Level Security (RLS)
-
-All tables have RLS enabled with policies:
-- Drivers: Can view/update own profile, public can see online verified drivers
-- Clients: Can view/update own profile
-- Bookings: Drivers see their bookings, clients see their bookings
-- Transactions: Users see only their own transactions
-- Admins: Full access to all tables
-
-## Environment Variables
-
-```
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_PAYSTACK_PUBLIC_KEY=your_paystack_public_key
-PAYSTACK_SECRET_KEY=your_paystack_secret_key
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-```
-
-## Database Setup
-
-The SQL schema is provided in `supabase_schema.sql`. To set up:
-
-1. Create a Supabase project
-2. Go to SQL Editor in Supabase dashboard
-3. Run the entire `supabase_schema.sql` script
-4. Tables, indexes, RLS policies, and triggers will be created automatically
-
-## Design System
-
-### Colors
-- Primary: Blue (#2563EB) - CTAs, links, driver status
-- Success: Green - Online status, completed bookings
-- Destructive: Red - Offline, cancelled bookings
-- Muted: Gray - Secondary text, inactive states
-
-### Typography
-- Font Family: Inter (primary), Manrope (headings)
-- Hierarchy: 7xl hero → 4xl sections → 2xl cards → base body → xs metadata
-
-### Components
-- Cards: Elevated with subtle borders
-- Buttons: Size variants (default, lg, sm, icon)
-- Badges: Rounded-full for status indicators
-- Stat Cards: Icon + metric + trend indicator
-
-### Spacing
-- Micro: 2-4px (component padding)
-- Component: 6-8px (between elements)
-- Section: 12-20px (major blocks)
-- Page margins: 24px (desktop), 6px (mobile)
-
-## Development Notes
-
-### Preventing Infinite Loops
-
-**React Query Configuration:**
-```typescript
-useQuery({
-  queryKey: ['/api/drivers/me'],
-  refetchOnWindowFocus: false, // Don't refetch on tab focus
-  retry: false, // Don't retry failed requests
-});
-```
-
-**State Updates:**
-```typescript
-// Compare before updating to prevent unnecessary writes
-const handleToggleOnline = (online: boolean) => {
-  if (isOnline !== online) {
-    toggleOnlineMutation.mutate(online);
-  }
-};
-```
-
-**Realtime Subscriptions:**
-```typescript
-useEffect(() => {
-  const channel = supabase.channel('driver-status')
-    .on('postgres_changes', { ... }, handleUpdate)
-    .subscribe();
-
-  return () => {
-    channel.unsubscribe(); // Cleanup on unmount
-  };
-}, []); // Stable dependencies
-```
-
-### Testing Considerations
-
-- Driver verification requires ₦5,000 test payment
-- Use Paystack test keys for development
-- Mock GPS coordinates for location testing
-- Admin features require admin user in database
-
-## API Endpoints
-
-### Driver Endpoints
-- `GET /api/drivers/me` - Get current driver profile
-- `GET /api/drivers/stats` - Get driver statistics
-- `POST /api/drivers/toggle-online` - Toggle online status
-- `GET /api/drivers/nearby` - Search nearby drivers
-
-### Booking Endpoints
-- `GET /api/bookings/active` - Get active bookings
-- `POST /api/bookings/:id/accept` - Accept booking
-- `POST /api/bookings` - Create new booking
-
-### Admin Endpoints
-- `GET /api/admin/stats` - Platform statistics
-- `GET /api/admin/recent-bookings` - Recent bookings
-
-### Payment Endpoints
-- `POST /api/payments/initialize` - Initialize Paystack payment
-- `POST /api/webhooks/paystack` - Paystack webhook handler
-
-## Current Development Status (December 2025)
-
-### ✅ Completed Features (Latest: Completion-Based Payment System)
-1. **Completion-Based Automatic Payouts** - Restructured payment flow (December 2025)
-   - Upfront payment: Client pays full amount at booking (held in platform balance)
-   - Bank account management: Driver adds account → Paystack verification → Transfer recipient creation
-   - Dual confirmation: Both driver and client must confirm completion
-   - Automatic payout: Instant transfer to driver when both confirm
-   - Configurable commission: Super admin can adjust platform commission (default 10%)
-   - Race condition prevention: Atomic transaction claiming ensures single payout
-   - Comprehensive logging: All partial failures logged for reconciliation
-
-2. **Real Database Statistics** - All dashboards show live data from Supabase
-   - Driver stats: today's trips/earnings calculated from transactions table
-   - Admin stats: active drivers, total clients, revenue, commission from real data
-   - Completion-based settlement tracking with driver_share and platform_share
-
-2. **Google Maps Integration** - Location autocomplete with coordinate validation
-   - Centralized singleton loader prevents duplicate API calls
-   - Places autocomplete restricted to Nigeria
-   - Haversine distance calculation for nearby driver search
-   - Coordinate validation before driver search
-
-3. **Paystack Payment Flow** - Complete driver verification and booking payments
-   - Driver verification: ₦5,000 payment endpoint with proper metadata
-   - Booking payment: Server-side amount validation from booking.total_cost
-   - Subaccount creation: For verified drivers to receive split payments
-   - Security: Booking ownership validation, no client-side amount spoofing
-
-4. **Paystack Webhook Handler** - Signature validation and payment confirmation
-   - Verification payment: Marks driver as verified
-   - Booking payment: Updates booking status and creates transaction records
-   - Split calculation: 90/10 split with driver_share and platform_share
-
-5. **Supabase Realtime Subscriptions** - Instant updates across all dashboards
-   - Client dashboard: Driver status changes (online/offline) auto-refresh
-   - Driver dashboard: Booking requests with instant toast notifications
-   - Admin dashboard: Platform-wide booking, driver, and client changes
-   - Proper cleanup: All subscriptions unsubscribe on component unmount
-
-6. **Driver Rating and Review System** - Complete rating functionality
-   - Database: ratings table with unique constraint (one rating per booking)
-   - API endpoints: Create, update, and fetch ratings with security validation
-   - Auto-calculation: Driver average rating updates after each submission
-   - UI: RatingDialog component with 5-star rating and optional review text
-   - Security: Clients can only rate completed bookings they participated in
-
-7. **In-App Chat System** - Real-time messaging between driver and client
-   - Database: messages table with RLS policies for participant-only access
-   - Real-time: Supabase Realtime publication for instant message delivery
-   - API endpoints: GET/POST with booking participation validation
-   - UI: ChatBox component with auto-scroll and sender/receiver styling
-   - Security: Server-side role detection, RLS enforcement, realtime scoped to booking
-
-8. **Push Notification System** - OneSignal integration for instant updates
-   - Database: notification_preferences and notification_logs tables with RLS
-   - Notification service: Automatic push notifications for booking/payment events
-   - API endpoints: GET/PUT preferences, GET logs, mark as read
-   - Templates: Pre-configured notifications for all booking events
-   - User control: Granular notification preferences per event type
-   - Documentation: Complete OneSignal setup guide (ONESIGNAL_SETUP.md)
-
-9. **Completion-Based Automatic Payouts** - Instant driver payment on task completion
-   - Database: platform_settings with configurable commission percentage
-   - Bank account service: Paystack account verification and transfer recipient creation
-   - Completion confirmation: Dual confirmation (driver + client) triggers payout
-   - Payout service: Atomic transaction claiming, commission calculation, instant transfer
-   - API endpoints: POST driver-confirm, POST client-confirm, GET/PUT admin commission settings
-   - Security: Race condition prevention, rollback on failure, comprehensive logging
-   - Idempotency: Deterministic transfer references, duplicate prevention
-
-10. **Driver Alerts & Route Optimization** - Google Maps integration for accurate routing
-   - Distance Matrix API: Real driving distances with live traffic data
-   - Geofencing: 500m radius alerts for pickup/destination zones
-   - Route optimization: Multi-waypoint route calculation with turn-by-turn
-   - ETA calculation: Dynamic arrival time based on current traffic
-   - API endpoints: POST calculate, check-geofence, optimize route
-
-### 🔨 Planned Enhancements
-- Advanced analytics with Recharts charts
-- Trip history CSV export and PDF receipts
-- Audit logging and dispute resolution
+Drivers On Demand is a production-ready, full-stack platform designed to connect clients with verified professional drivers in real-time. It features role-based dashboards for drivers, clients, and administrators, offering real-time updates, secure payment processing, and location-based driver search. The project aims to provide a seamless and efficient booking experience, leveraging modern web technologies to ensure scalability and reliability.
+
+## User Preferences
+I prefer clear, concise explanations and an iterative development approach. Please ask before implementing major changes or making significant architectural decisions. I value detailed explanations when new features or complex logic are introduced. I also want to make sure the agent does not make changes to the existing folder structure unless explicitly asked.
+
+## System Architecture
+
+### UI/UX Decisions
+The platform utilizes React with Vite for a fast Single Page Application experience. Styling is handled by Tailwind CSS for a utility-first approach, complemented by Shadcn UI for accessible and aesthetically pleasing components. Inter and Manrope are used for typography, with a clear hierarchy. Color schemes include primary blue for CTAs, green for success, red for destructive actions, and gray for muted states. Components are designed with consistency, using cards, various button sizes, rounded badges, and stat cards with trend indicators. Spacing is systematically applied across micro, component, section, and page levels.
+
+### Technical Implementations
+The frontend uses TypeScript for type safety, React Query for server state management with optimized caching, Zustand for global client state, Wouter for routing, and Lucide React for icons. The backend is powered by Supabase, providing a PostgreSQL database with real-time subscriptions and built-in authentication. Express.js serves as the API server, integrating with the Paystack API for payment processing, including split payments. Google Maps API is used for location services, driver tracking, and route optimization, including distance matrix calculations and geofencing.
+
+### Feature Specifications
+The platform includes comprehensive features such as:
+- **Role-Based Dashboards:** Separate interfaces for drivers, clients, and administrators, each tailored to their specific needs.
+- **Real-time Capabilities:** Leveraging Supabase Realtime for instant updates on driver status, booking requests, and in-app chat messages.
+- **Secure Payment Processing:** Integration with Paystack for driver verification fees, upfront client payments (held in escrow), and automatic split payouts to drivers upon trip completion.
+- **Driver Verification:** A process involving a one-time payment and profile completion to ensure professional standards.
+- **Booking Flow:** Clients search for nearby drivers, confirm bookings, make upfront payments, and track trip progress with real-time updates. Drivers receive and manage booking requests.
+- **Admin Oversight:** Administrators can manage users, monitor platform analytics (drivers, clients, revenue, trips), oversee bookings, and track transactions.
+- **In-App Chat:** Real-time messaging between drivers and clients, secured with Row-Level Security (RLS).
+- **Push Notifications:** OneSignal integration for event-driven alerts.
+- **Rating and Review System:** Allows clients to rate and review drivers post-trip.
+- **Completion-Based Payouts:** Automatic, commission-based payouts to drivers only after both driver and client confirm trip completion, with race condition prevention and comprehensive logging.
+
+### System Design Choices
+- **Database Schema:** Structured with tables for Drivers, Clients, Bookings, Transactions, and Admin Users, with appropriate relationships and JSONB for location data.
+- **Authentication:** Supabase Auth for user management, with roles stored in user metadata for access control.
+- **Row-Level Security (RLS):** Implemented across all tables to restrict data access based on user roles, ensuring data privacy and security.
+- **Real-time Optimization:** Replaced polling with Supabase Realtime subscriptions for instant updates, minimizing redundant fetches with React Query caching, and proper cleanup of subscriptions.
+- **Payment Security:** Webhook signature validation, transaction locks, and comprehensive payment status tracking are implemented to ensure secure and reliable financial operations.
+- **Idempotency:** Deterministic transfer references for Paystack ensure duplicate transactions are rejected.
+
+## External Dependencies
+- **Supabase:** Database, Authentication, and Realtime functionalities.
+- **Paystack:** Payment gateway for processing all financial transactions, including driver verification, client payments, and split payouts.
+- **Google Maps API:** Location services, driver tracking, places autocomplete, distance matrix calculations, and geofencing.
+- **OneSignal:** Push notification service for real-time alerts to users.
