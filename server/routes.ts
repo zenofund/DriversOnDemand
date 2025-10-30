@@ -233,10 +233,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { bank_code, account_number, account_name } = req.body;
+      const { bank_code, account_number } = req.body;
 
-      if (!bank_code || !account_number || !account_name) {
-        return res.status(400).json({ error: "All bank details are required" });
+      if (!bank_code || !account_number) {
+        return res.status(400).json({ error: "Bank code and account number are required" });
       }
 
       // Get driver
@@ -251,17 +251,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update bank account using service
-      const result = await updateDriverBankDetails(driver.id, {
-        bank_code,
-        account_number,
-        account_name,
-      });
+      const result = await updateDriverBankDetails(driver.id, bank_code, account_number);
 
       if (!result.success) {
         return res.status(400).json({ error: result.error });
       }
 
-      res.json({ success: true, data: result.data });
+      res.json({ 
+        success: true, 
+        account_name: result.account_name,
+        message: "Bank account updated successfully" 
+      });
     } catch (error) {
       console.error('Error updating bank account:', error);
       res.status(500).json({ error: "Server error" });
