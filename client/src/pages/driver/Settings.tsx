@@ -16,9 +16,11 @@ import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { User, DollarSign, CreditCard, Lock, Save } from 'lucide-react';
+import { User, DollarSign, CreditCard, Lock, Save, MapPin, Loader2 } from 'lucide-react';
 import { updateDriverProfileSchema, updateDriverBankSchema } from '@shared/schema';
 import type { Driver } from '@shared/schema';
+import { useGeolocation } from '@/hooks/useGeolocation';
+import { LocationMap } from '@/components/LocationMap';
 
 interface Bank {
   name: string;
@@ -50,6 +52,7 @@ export default function Settings() {
   });
 
   const [verifiedAccountName, setVerifiedAccountName] = useState('');
+  const { coordinates, loading: geoLoading, error: geoError, getCurrentPosition } = useGeolocation();
 
   useEffect(() => {
     if (!user) {
@@ -79,6 +82,39 @@ export default function Settings() {
   const { data: banks = [] } = useQuery<Bank[]>({
     queryKey: ['/api/banks'],
   });
+
+  const { data: driverData } = useQuery<Driver>({
+    queryKey: ['/api/drivers/me'],
+    enabled: !!user,
+  });
+
+  const updateLocationMutation = useMutation({
+    mutationFn: async (location: { lat: number; lng: number }) => {
+      const res = await apiRequest('PATCH', '/api/drivers/location', location);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Location updated',
+        description: 'Your current location has been saved',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/drivers/me'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Update failed',
+        description: error.message || 'Failed to update location',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Auto-update location when coordinates are fetched
+  useEffect(() => {
+    if (coordinates && !updateLocationMutation.isPending) {
+      updateLocationMutation.mutate(coordinates);
+    }
+  }, [coordinates]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: any) => {
@@ -346,6 +382,70 @@ export default function Settings() {
                     </Button>
                   </div>
                 </form>
+              </CardContent>
+            </Card>
+
+            <Separator />
+
+            {/* Location */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  <CardTitle>Current Location</CardTitle>
+                </div>
+                <CardDescription>
+                  Update your location to help clients find you. Your location is automatically captured when you go online.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {geoError && (
+                  <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm">
+                    {geoError}
+                  </div>
+                )}
+
+                {driverData?.current_location ? (
+                  <div className="space-y-4">
+                    <div className="h-64 w-full rounded-md overflow-hidden border">
+                      <LocationMap
+                        lat={driverData.current_location.lat}
+                        lng={driverData.current_location.lng}
+                      />
+                    </div>
+                    <div className="p-3 bg-muted rounded-md space-y-1">
+                      <p className="text-sm font-semibold">Coordinates:</p>
+                      <p className="text-sm text-muted-foreground font-mono">
+                        Lat: {driverData.current_location.lat.toFixed(6)}, Lng: {driverData.current_location.lng.toFixed(6)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center border-2 border-dashed rounded-md">
+                    <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No location set yet</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={getCurrentPosition}
+                    disabled={geoLoading || updateLocationMutation.isPending}
+                    data-testid="button-get-location"
+                  >
+                    {(geoLoading || updateLocationMutation.isPending) ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Getting Location...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Get My Location
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
