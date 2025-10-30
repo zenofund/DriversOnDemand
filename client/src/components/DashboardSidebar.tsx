@@ -114,19 +114,18 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
         {menuItems.map((item) => {
           const isActive = location === item.path;
           return (
-            <Link key={item.path} href={item.path}>
-              <Button
-                asChild
-                variant={isActive ? 'secondary' : 'ghost'}
-                className="w-full justify-start gap-3"
-                data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <a>
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </a>
-              </Button>
-            </Link>
+            <Button
+              key={item.path}
+              variant={isActive ? 'secondary' : 'ghost'}
+              className="w-full justify-start gap-3"
+              data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+              asChild
+            >
+              <Link href={item.path}>
+                <item.icon className="h-4 w-4" />
+                <span>{item.label}</span>
+              </Link>
+            </Button>
           );
         })}
       </nav>
