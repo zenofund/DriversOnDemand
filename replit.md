@@ -11,6 +11,8 @@ I prefer clear, concise explanations and an iterative development approach. Plea
 ### UI/UX Decisions
 The platform utilizes React with Vite for a fast Single Page Application experience. Styling is handled by Tailwind CSS for a utility-first approach, complemented by Shadcn UI for accessible and aesthetically pleasing components. Inter and Manrope are used for typography, with a clear hierarchy. Color schemes include primary blue for CTAs, green for success, red for destructive actions, and gray for muted states. Components are designed with consistency, using cards, various button sizes, rounded badges, and stat cards with trend indicators. Spacing is systematically applied across micro, component, section, and page levels.
 
+**Dark Mode:** Full dark mode support with ThemeProvider and localStorage persistence. Theme toggle available in public header and all dashboard sidebars. No flash on load using useLayoutEffect to apply theme before first paint.
+
 ### Technical Implementations
 The frontend uses TypeScript for type safety, React Query for server state management with optimized caching, Zustand for global client state, Wouter for routing, and Lucide React for icons. The backend is powered by Supabase, providing a PostgreSQL database with real-time subscriptions and built-in authentication. Express.js serves as the API server, integrating with the Paystack API for payment processing, including split payments. Google Maps API is used for location services, driver tracking, and route optimization, including distance matrix calculations and geofencing.
 
@@ -18,6 +20,7 @@ The frontend uses TypeScript for type safety, React Query for server state manag
 The platform includes comprehensive features such as:
 - **Role-Based Dashboards:** Separate interfaces for drivers, clients, and administrators, each tailored to their specific needs.
 - **Driver Settings:** Comprehensive settings page allowing drivers to manage profile information (name, phone, license, hourly rate), bank account details for payouts, and password changes.
+- **Driver Availability Toggle:** Drivers can switch between online/offline status via POST /api/drivers/toggle-online endpoint. Status persists in database (`online_status` field) and syncs across app. Only online drivers appear in client searches.
 - **Real-time Capabilities:** Leveraging Supabase Realtime for instant updates on driver status, booking requests, and in-app chat messages.
 - **Secure Payment Processing:** Integration with Paystack for driver verification fees, upfront client payments (held in escrow), and automatic split payouts to drivers upon trip completion.
 - **Driver Verification:** A process involving a one-time payment and profile completion to ensure professional standards.
@@ -27,6 +30,7 @@ The platform includes comprehensive features such as:
 - **Push Notifications:** OneSignal integration for event-driven alerts.
 - **Rating and Review System:** Allows clients to rate and review drivers post-trip.
 - **Completion-Based Payouts:** Automatic, commission-based payouts to drivers only after both driver and client confirm trip completion, with race condition prevention and comprehensive logging.
+- **Landing Page:** Mobile-first responsive design with streamlined sections (hero, features, CTA). Minimal footer with legal links.
 
 ### System Design Choices
 - **Database Schema:** Structured with tables for Drivers, Clients, Bookings, Transactions, and Admin Users, with appropriate relationships and JSONB for location data.

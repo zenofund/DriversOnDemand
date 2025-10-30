@@ -92,13 +92,11 @@ export default function Login() {
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/">
-            <a className="inline-flex items-center gap-2 text-2xl font-bold font-heading mb-2">
-              <div className="h-10 w-10 rounded-md bg-primary flex items-center justify-center">
-                <BadgeCheck className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <span>Drivers On Demand</span>
-            </a>
+          <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold font-heading mb-2">
+            <div className="h-10 w-10 rounded-md bg-primary flex items-center justify-center">
+              <BadgeCheck className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <span>Drivers On Demand</span>
           </Link>
         </div>
 
@@ -147,10 +145,8 @@ export default function Login() {
             <div className="mt-6 text-center text-sm">
               <p className="text-muted-foreground">
                 Don't have an account?{' '}
-                <Link href="/auth/signup">
-                  <a className="text-primary font-medium hover:underline" data-testid="link-signup">
-                    Sign up
-                  </a>
+                <Link href="/auth/signup" className="text-primary font-medium hover:underline" data-testid="link-signup">
+                  Sign up
                 </Link>
               </p>
             </div>

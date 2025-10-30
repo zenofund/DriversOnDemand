@@ -8,7 +8,7 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-async function getAuthHeaders() {
+async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
   
   if (session?.access_token) {
@@ -17,7 +17,7 @@ async function getAuthHeaders() {
     };
   }
   
-  return {};
+  return {} as Record<string, string>;
 }
 
 export async function apiRequest(

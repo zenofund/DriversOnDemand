@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Car, DollarSign, Star, Clock, Check, X } from 'lucide-react';
 import type { Driver, BookingWithDetails } from '@shared/schema';
 
@@ -85,12 +85,7 @@ export default function DriverDashboard() {
 
   const toggleOnlineMutation = useMutation({
     mutationFn: async (online: boolean) => {
-      const response = await fetch('/api/drivers/toggle-online', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ online }),
-      });
-      if (!response.ok) throw new Error('Failed to update status');
+      const response = await apiRequest('POST', '/api/drivers/toggle-online', { online });
       return response.json();
     },
     onSuccess: (_, online) => {
@@ -105,10 +100,7 @@ export default function DriverDashboard() {
 
   const acceptBookingMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      const response = await fetch(`/api/bookings/${bookingId}/accept`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to accept booking');
+      const response = await apiRequest('POST', `/api/bookings/${bookingId}/accept`);
       return response.json();
     },
     onSuccess: () => {
