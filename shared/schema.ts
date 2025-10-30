@@ -81,8 +81,7 @@ export const updateDriverProfileSchema = z.object({
 
 export const updateDriverBankSchema = z.object({
   bank_code: z.string().min(3, "Bank code required"),
-  account_number: z.string().min(10, "Valid account number required"),
-  account_name: z.string().min(2, "Account name required"),
+  account_number: z.string().length(10, "Account number must be exactly 10 digits"),
 });
 
 export type Driver = z.infer<typeof driverSchema>;

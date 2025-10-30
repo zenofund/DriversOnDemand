@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,12 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { User, DollarSign, CreditCard, Lock, Save } from 'lucide-react';
+import { updateDriverProfileSchema, updateDriverBankSchema } from '@shared/schema';
 import type { Driver } from '@shared/schema';
 
 interface Bank {
@@ -127,14 +132,44 @@ export default function Settings() {
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate hourly rate
+    const hourlyRate = parseFloat(profileForm.hourly_rate);
+    if (isNaN(hourlyRate) || hourlyRate <= 0) {
+      toast({
+        title: 'Validation error',
+        description: 'Please enter a valid hourly rate',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate name and phone
+    if (!profileForm.full_name || profileForm.full_name.length < 2) {
+      toast({
+        title: 'Validation error',
+        description: 'Name must be at least 2 characters',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!profileForm.phone || profileForm.phone.length < 10) {
+      toast({
+        title: 'Validation error',
+        description: 'Please enter a valid phone number',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const updates: any = {
-      full_name: profileForm.full_name,
-      phone: profileForm.phone,
-      hourly_rate: parseFloat(profileForm.hourly_rate),
+      full_name: profileForm.full_name.trim(),
+      phone: profileForm.phone.trim(),
+      hourly_rate: hourlyRate,
     };
 
-    if (profileForm.license_no) {
-      updates.license_no = profileForm.license_no;
+    if (profileForm.license_no && profileForm.license_no.length >= 5) {
+      updates.license_no = profileForm.license_no.trim();
     }
 
     updateProfileMutation.mutate(updates);
@@ -143,25 +178,30 @@ export default function Settings() {
   const handleBankSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!bankForm.bank_code || !bankForm.account_number) {
+    if (!bankForm.bank_code || bankForm.bank_code.length < 3) {
       toast({
         title: 'Validation error',
-        description: 'Please fill in all bank details',
+        description: 'Please select a bank',
         variant: 'destructive',
       });
       return;
     }
 
-    if (bankForm.account_number.length !== 10) {
+    // Clean and validate account number
+    const cleanAccountNumber = bankForm.account_number.replace(/\D/g, '');
+    if (cleanAccountNumber.length !== 10) {
       toast({
         title: 'Validation error',
-        description: 'Account number must be 10 digits',
+        description: 'Account number must be exactly 10 digits',
         variant: 'destructive',
       });
       return;
     }
 
-    updateBankMutation.mutate(bankForm);
+    updateBankMutation.mutate({
+      bank_code: bankForm.bank_code,
+      account_number: cleanAccountNumber,
+    });
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {

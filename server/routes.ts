@@ -192,18 +192,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const updates = req.body;
-      
-      // Remove fields that shouldn't be updated directly
-      delete updates.id;
-      delete updates.user_id;
-      delete updates.verified;
-      delete updates.created_at;
-      delete updates.email;
+      // Validate request body with schema
+      const validation = updateDriverProfileSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.errors 
+        });
+      }
+
+      // Only allow specific fields to be updated
+      const allowedUpdates: any = {};
+      const validated = validation.data;
+
+      if (validated.full_name !== undefined) allowedUpdates.full_name = validated.full_name;
+      if (validated.phone !== undefined) allowedUpdates.phone = validated.phone;
+      if (validated.license_no !== undefined) allowedUpdates.license_no = validated.license_no;
+      if (validated.hourly_rate !== undefined) allowedUpdates.hourly_rate = validated.hourly_rate;
+
+      if (Object.keys(allowedUpdates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
 
       const { data, error } = await supabase
         .from('drivers')
-        .update(updates)
+        .update(allowedUpdates)
         .eq('user_id', user.id)
         .select()
         .single();
@@ -233,11 +246,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { bank_code, account_number } = req.body;
-
-      if (!bank_code || !account_number) {
-        return res.status(400).json({ error: "Bank code and account number are required" });
+      // Validate request body with schema
+      const validation = updateDriverBankSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.errors 
+        });
       }
+
+      const { bank_code, account_number } = validation.data;
 
       // Get driver
       const { data: driver } = await supabase
@@ -250,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Driver not found" });
       }
 
-      // Update bank account using service
+      // Update bank account using service (includes Paystack verification)
       const result = await updateDriverBankDetails(driver.id, bank_code, account_number);
 
       if (!result.success) {
@@ -260,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         success: true, 
         account_name: result.account_name,
-        message: "Bank account updated successfully" 
+        message: "Bank account verified and updated successfully" 
       });
     } catch (error) {
       console.error('Error updating bank account:', error);

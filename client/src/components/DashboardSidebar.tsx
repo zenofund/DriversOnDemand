@@ -61,6 +61,18 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
 
   const menuItems = getMenuItems();
   const driver = profile as Driver;
+  
+  const getProfileName = () => {
+    if (!profile) return 'User';
+    if ('full_name' in profile) return profile.full_name;
+    if ('name' in profile) return profile.name;
+    return 'User';
+  };
+
+  const getProfileInitials = () => {
+    const name = getProfileName();
+    return name.split(' ').map((n: string) => n[0]).join('').slice(0, 2);
+  };
 
   return (
     <div className="h-screen w-64 bg-sidebar border-r flex flex-col">
@@ -69,12 +81,12 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
         <div className="flex items-center gap-3 mb-4">
           <Avatar className="h-12 w-12">
             <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-              {profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
+              {getProfileInitials()}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sidebar-foreground truncate">
-              {profile?.full_name || 'User'}
+              {getProfileName()}
             </p>
             <p className="text-xs text-muted-foreground capitalize">{role}</p>
           </div>
