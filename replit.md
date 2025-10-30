@@ -17,6 +17,7 @@ The frontend uses TypeScript for type safety, React Query for server state manag
 ### Feature Specifications
 The platform includes comprehensive features such as:
 - **Role-Based Dashboards:** Separate interfaces for drivers, clients, and administrators, each tailored to their specific needs.
+- **Driver Settings:** Comprehensive settings page allowing drivers to manage profile information (name, phone, license, hourly rate), bank account details for payouts, and password changes.
 - **Real-time Capabilities:** Leveraging Supabase Realtime for instant updates on driver status, booking requests, and in-app chat messages.
 - **Secure Payment Processing:** Integration with Paystack for driver verification fees, upfront client payments (held in escrow), and automatic split payouts to drivers upon trip completion.
 - **Driver Verification:** A process involving a one-time payment and profile completion to ensure professional standards.
@@ -34,6 +35,8 @@ The platform includes comprehensive features such as:
 - **Real-time Optimization:** Replaced polling with Supabase Realtime subscriptions for instant updates, minimizing redundant fetches with React Query caching, and proper cleanup of subscriptions.
 - **Payment Security:** Webhook signature validation, transaction locks, and comprehensive payment status tracking are implemented to ensure secure and reliable financial operations.
 - **Idempotency:** Deterministic transfer references for Paystack ensure duplicate transactions are rejected.
+- **Input Validation:** Multi-layer validation using Zod schemas on both frontend and backend, with field whitelisting on profile updates to prevent unauthorized field modifications.
+- **Bank Account Security:** Bank account updates require Paystack verification (PATCH /api/drivers/bank-account) - drivers cannot inject bank details through the profile endpoint, ensuring all payout accounts are verified before accepting payments.
 
 ## External Dependencies
 - **Supabase:** Database, Authentication, and Realtime functionalities.
