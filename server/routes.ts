@@ -334,6 +334,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update driver location
+  app.patch("/api/drivers/location", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { lat, lng } = req.body;
+      
+      // Validate coordinates
+      if (typeof lat !== 'number' || typeof lng !== 'number') {
+        return res.status(400).json({ error: "Invalid coordinates: lat and lng must be numbers" });
+      }
+
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return res.status(400).json({ error: "Invalid coordinates: out of range" });
+      }
+
+      const { data, error } = await supabase
+        .from('drivers')
+        .update({ current_location: { lat, lng } })
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating location:', error);
+        return res.status(500).json({ error: "Failed to update location" });
+      }
+
+      res.json({ 
+        success: true, 
+        current_location: data.current_location,
+        message: "Location updated successfully" 
+      });
+    } catch (error) {
+      console.error('Error in location update endpoint:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Search nearby drivers
   app.get("/api/drivers/nearby", async (req, res) => {
     try {
