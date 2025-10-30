@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { importLibrary } from '@googlemaps/js-api-loader';
 
 interface LocationMapProps {
   lat: number;
@@ -17,38 +17,46 @@ export function LocationMap({ lat, lng, zoom = 15, className = '' }: LocationMap
     const initMap = async () => {
       if (!mapRef.current) return;
 
-      const loader = new Loader({
-        apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-        version: 'weekly',
-      });
+      try {
+        // Load the Maps library with API key configuration
+        const { Map } = await importLibrary('maps', {
+          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+          version: 'weekly',
+        }) as google.maps.MapsLibrary;
 
-      const { Map } = await loader.importLibrary('maps');
-      const { Marker } = await loader.importLibrary('marker');
+        // Load the Marker library
+        const { Marker } = await importLibrary('marker', {
+          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+          version: 'weekly',
+        }) as google.maps.MarkerLibrary;
 
-      const position = { lat, lng };
+        const position = { lat, lng };
 
-      // Create map if it doesn't exist
-      if (!googleMapRef.current) {
-        googleMapRef.current = new Map(mapRef.current, {
-          center: position,
-          zoom: zoom,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-        });
+        // Create map if it doesn't exist
+        if (!googleMapRef.current) {
+          googleMapRef.current = new Map(mapRef.current, {
+            center: position,
+            zoom: zoom,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+          });
 
-        // Create marker
-        markerRef.current = new Marker({
-          position: position,
-          map: googleMapRef.current,
-          title: 'Your Location',
-        });
-      } else {
-        // Update existing map and marker
-        googleMapRef.current.setCenter(position);
-        if (markerRef.current) {
-          markerRef.current.setPosition(position);
+          // Create marker using standard Marker (no mapId required)
+          markerRef.current = new Marker({
+            position: position,
+            map: googleMapRef.current,
+            title: 'Your Location',
+          });
+        } else {
+          // Update existing map and marker
+          googleMapRef.current.setCenter(position);
+          if (markerRef.current) {
+            markerRef.current.setPosition(position);
+          }
         }
+      } catch (error) {
+        console.error('Error loading Google Maps:', error);
       }
     };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { StatCard } from '@/components/StatCard';
@@ -12,12 +12,18 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Car, DollarSign, Star, Clock, Check, X } from 'lucide-react';
 import type { Driver, BookingWithDetails } from '@shared/schema';
+import { useGeolocation } from '@/hooks/useGeolocation';
 
 export default function DriverDashboard() {
   const [, setLocation] = useLocation();
   const { user, profile, logout } = useAuthStore();
   const { toast } = useToast();
   const [isOnline, setIsOnline] = useState(false);
+  const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isTogglingOnlineRef = useRef(false);
+  const hasValidLocationRef = useRef(false);
+  const desiredOnlineStateRef = useRef(false); // Track what user actually wants
+  const { coordinates, error: geoError, getCurrentPosition } = useGeolocation();
 
   useEffect(() => {
     if (!user) {
@@ -83,20 +89,155 @@ export default function DriverDashboard() {
     refetchOnWindowFocus: false,
   });
 
-  const toggleOnlineMutation = useMutation({
-    mutationFn: async (online: boolean) => {
-      const response = await apiRequest('POST', '/api/drivers/toggle-online', { online });
+  const updateLocationMutation = useMutation({
+    mutationFn: async (location: { lat: number; lng: number }) => {
+      const response = await apiRequest('PATCH', '/api/drivers/location', location);
       return response.json();
     },
-    onSuccess: (_, online) => {
-      setIsOnline(online);
-      toast({
-        title: online ? 'You are now online' : 'You are now offline',
-        description: online ? 'You will receive booking requests' : 'You will not receive booking requests',
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/drivers/me'] });
+    onSuccess: async () => {
+      hasValidLocationRef.current = true;
+      
+      // Only proceed if user still wants to be online
+      if (isTogglingOnlineRef.current && desiredOnlineStateRef.current) {
+        try {
+          await apiRequest('POST', '/api/drivers/toggle-online', { online: true });
+          
+          // Final check - user still wants online?
+          if (desiredOnlineStateRef.current) {
+            setIsOnline(true);
+            toast({
+              title: 'You are now online',
+              description: 'Location updated. You will receive booking requests.',
+            });
+            queryClient.invalidateQueries({ queryKey: ['/api/drivers/me'] });
+          }
+          isTogglingOnlineRef.current = false;
+        } catch (error) {
+          // Backend toggle failed after location was saved
+          isTogglingOnlineRef.current = false;
+          hasValidLocationRef.current = false;
+          
+          if (desiredOnlineStateRef.current) {
+            toast({
+              title: 'Failed to go online',
+              description: 'Location saved but could not set online status. Please try again.',
+              variant: 'destructive',
+            });
+          }
+        }
+      } else {
+        // User changed their mind - clean up
+        isTogglingOnlineRef.current = false;
+      }
+    },
+    onError: () => {
+      hasValidLocationRef.current = false;
+      
+      if (isTogglingOnlineRef.current && desiredOnlineStateRef.current) {
+        isTogglingOnlineRef.current = false;
+        toast({
+          title: 'Location update failed',
+          description: 'Could not save your location. Please try again.',
+          variant: 'destructive',
+        });
+      } else {
+        isTogglingOnlineRef.current = false;
+      }
     },
   });
+
+  const toggleOfflineMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/drivers/toggle-online', { online: false });
+      return response.json();
+    },
+    onSuccess: () => {
+      // Only apply if user still wants offline
+      if (!desiredOnlineStateRef.current) {
+        setIsOnline(false);
+        isTogglingOnlineRef.current = false;
+        hasValidLocationRef.current = false;
+        
+        if (locationIntervalRef.current) {
+          clearInterval(locationIntervalRef.current);
+          locationIntervalRef.current = null;
+        }
+        
+        toast({
+          title: 'You are now offline',
+          description: 'You will not receive booking requests',
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/drivers/me'] });
+      }
+    },
+    onError: () => {
+      // Force offline locally even if backend fails, but only if user still wants offline
+      if (!desiredOnlineStateRef.current) {
+        setIsOnline(false);
+        isTogglingOnlineRef.current = false;
+        hasValidLocationRef.current = false;
+        
+        if (locationIntervalRef.current) {
+          clearInterval(locationIntervalRef.current);
+          locationIntervalRef.current = null;
+        }
+        
+        toast({
+          title: 'Offline (sync failed)',
+          description: 'You appear offline locally, but server sync failed. You may still receive requests.',
+          variant: 'destructive',
+        });
+      }
+    },
+  });
+
+  // Handle coordinates update
+  useEffect(() => {
+    if (coordinates && isTogglingOnlineRef.current) {
+      updateLocationMutation.mutate(coordinates);
+    } else if (coordinates && hasValidLocationRef.current) {
+      // Periodic update (driver already online)
+      updateLocationMutation.mutate(coordinates);
+    }
+  }, [coordinates]);
+
+  // Handle geolocation errors
+  useEffect(() => {
+    if (geoError && isTogglingOnlineRef.current) {
+      isTogglingOnlineRef.current = false;
+      toast({
+        title: 'Location access required',
+        description: geoError,
+        variant: 'destructive',
+      });
+    }
+  }, [geoError]);
+
+  // Periodic location updates while online (every 5 minutes)
+  // Only if we have a valid location
+  useEffect(() => {
+    if (isOnline && hasValidLocationRef.current) {
+      // Set up periodic updates every 5 minutes (300000ms)
+      locationIntervalRef.current = setInterval(() => {
+        if (hasValidLocationRef.current) {
+          getCurrentPosition();
+        }
+      }, 300000);
+    } else {
+      // Clear interval when going offline or location becomes invalid
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+      }
+    };
+  }, [isOnline, hasValidLocationRef.current]);
 
   const acceptBookingMutation = useMutation({
     mutationFn: async (bookingId: string) => {
@@ -119,7 +260,18 @@ export default function DriverDashboard() {
   };
 
   const handleToggleOnline = (online: boolean) => {
-    toggleOnlineMutation.mutate(online);
+    // Update desired state immediately
+    desiredOnlineStateRef.current = online;
+    
+    if (online) {
+      // Start the process: first capture location
+      isTogglingOnlineRef.current = true;
+      getCurrentPosition();
+    } else {
+      // Going offline - cancel any pending online attempt and call backend
+      isTogglingOnlineRef.current = false;
+      toggleOfflineMutation.mutate();
+    }
   };
 
   if (!user || !profile) {
