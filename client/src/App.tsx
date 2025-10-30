@@ -12,6 +12,7 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import DriverDashboard from "@/pages/driver/DriverDashboard";
+import DriverSettings from "@/pages/driver/Settings";
 import ClientDashboard from "@/pages/client/ClientDashboard";
 import MyBookings from "@/pages/client/MyBookings";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/auth/login" component={Login} />
       <Route path="/auth/signup" component={Signup} />
       <Route path="/driver/dashboard" component={DriverDashboard} />
+      <Route path="/driver/settings" component={DriverSettings} />
       <Route path="/client/dashboard" component={ClientDashboard} />
       <Route path="/client/bookings" component={MyBookings} />
       <Route path="/admin/dashboard" component={AdminDashboard} />

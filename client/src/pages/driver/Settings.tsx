@@ -77,10 +77,8 @@ export default function Settings() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: any) => {
-      return await apiRequest('/api/drivers/profile', {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      });
+      const res = await apiRequest('PATCH', '/api/drivers/profile', updates);
+      return await res.json();
     },
     onSuccess: () => {
       toast({
@@ -100,10 +98,8 @@ export default function Settings() {
 
   const updateBankMutation = useMutation({
     mutationFn: async (data: { bank_code: string; account_number: string }) => {
-      return await apiRequest('/api/drivers/bank-account', {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
+      const res = await apiRequest('PATCH', '/api/drivers/bank-account', data);
+      return await res.json();
     },
     onSuccess: (data: any) => {
       toast({
