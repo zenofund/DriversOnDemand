@@ -230,9 +230,12 @@ CREATE POLICY "Anyone can view online verified drivers"
   ON drivers FOR SELECT
   USING (online_status = 'online' AND verified = TRUE);
 
-CREATE POLICY "New users can insert driver profile"
+CREATE POLICY "Allow driver profile creation"
   ON drivers FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id OR
+    auth.jwt() IS NOT NULL  -- Allows trigger to insert during signup
+  );
 
 -- Clients Policies
 CREATE POLICY "Clients can view their own profile"
@@ -243,9 +246,12 @@ CREATE POLICY "Clients can update their own profile"
   ON clients FOR UPDATE
   USING (auth.uid() = user_id);
 
-CREATE POLICY "New users can insert client profile"
+CREATE POLICY "Allow client profile creation"
   ON clients FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id OR
+    auth.jwt() IS NOT NULL  -- Allows trigger to insert during signup
+  );
 
 -- Bookings Policies
 CREATE POLICY "Clients can view their own bookings"
