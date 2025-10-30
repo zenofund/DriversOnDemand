@@ -100,7 +100,9 @@ export default function ClientDashboard() {
   };
 
   const handleSelectDriver = (driverId: string) => {
-    setSelectedDriver(driverId);
+    // Find the full driver object from nearby drivers
+    const driver = nearbyDrivers.find((d) => d.id === driverId);
+    setSelectedDriver(driverId, driver || null);
     setLocation('/client/booking-confirm');
   };
 

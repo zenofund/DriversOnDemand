@@ -43,8 +43,8 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
     if (role === 'client') {
       return [
         { icon: MapPin, label: 'Book Driver', path: '/client/dashboard' },
-        { icon: Car, label: 'My Bookings', path: '/client/bookings' },
-        { icon: History, label: 'History', path: '/client/history' },
+        { icon: Car, label: 'Active Booking', path: '/client/active' },
+        { icon: History, label: 'My Bookings', path: '/client/bookings' },
         { icon: Settings, label: 'Settings', path: '/client/settings' },
       ];
     }

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Driver } from '@shared/schema';
 
 interface LocationCoords {
   lat: number;
@@ -11,12 +12,13 @@ interface BookingState {
   destination: string;
   destinationCoords: LocationCoords | null;
   selectedDriverId: string | null;
+  selectedDriver: Driver | null;
   estimatedCost: number;
   estimatedDuration: number;
   estimatedDistance: number;
   setPickupLocation: (location: string, coords: LocationCoords) => void;
   setDestination: (location: string, coords: LocationCoords) => void;
-  setSelectedDriver: (driverId: string | null) => void;
+  setSelectedDriver: (driverId: string | null, driver?: Driver | null) => void;
   setEstimates: (cost: number, duration: number, distance: number) => void;
   clearBooking: () => void;
 }
@@ -27,6 +29,7 @@ export const useBookingStore = create<BookingState>((set) => ({
   destination: '',
   destinationCoords: null,
   selectedDriverId: null,
+  selectedDriver: null,
   estimatedCost: 0,
   estimatedDuration: 0,
   estimatedDistance: 0,
@@ -34,8 +37,8 @@ export const useBookingStore = create<BookingState>((set) => ({
     set({ pickupLocation: location, pickupCoords: coords }),
   setDestination: (location, coords) => 
     set({ destination: location, destinationCoords: coords }),
-  setSelectedDriver: (driverId) => 
-    set({ selectedDriverId: driverId }),
+  setSelectedDriver: (driverId, driver = null) => 
+    set({ selectedDriverId: driverId, selectedDriver: driver }),
   setEstimates: (cost, duration, distance) => 
     set({ estimatedCost: cost, estimatedDuration: duration, estimatedDistance: distance }),
   clearBooking: () => 
@@ -45,6 +48,7 @@ export const useBookingStore = create<BookingState>((set) => ({
       destination: '',
       destinationCoords: null,
       selectedDriverId: null,
+      selectedDriver: null,
       estimatedCost: 0,
       estimatedDuration: 0,
       estimatedDistance: 0,

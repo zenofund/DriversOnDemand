@@ -19,6 +19,10 @@ import Earnings from "@/pages/driver/Earnings";
 import History from "@/pages/driver/History";
 import ClientDashboard from "@/pages/client/ClientDashboard";
 import MyBookings from "@/pages/client/MyBookings";
+import BookingConfirm from "@/pages/client/BookingConfirm";
+import ActiveBooking from "@/pages/client/ActiveBooking";
+import ClientChat from "@/pages/client/Chat";
+import ClientSettings from "@/pages/client/Settings";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import NotFound from "@/pages/not-found";
 
@@ -34,7 +38,11 @@ function Router() {
       <Route path="/driver/history" component={History} />
       <Route path="/driver/settings" component={DriverSettings} />
       <Route path="/client/dashboard" component={ClientDashboard} />
+      <Route path="/client/booking-confirm" component={BookingConfirm} />
+      <Route path="/client/active" component={ActiveBooking} />
       <Route path="/client/bookings" component={MyBookings} />
+      <Route path="/client/chat/:id" component={ClientChat} />
+      <Route path="/client/settings" component={ClientSettings} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
