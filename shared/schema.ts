@@ -45,10 +45,14 @@ export const driverSchema = z.object({
   full_name: z.string().min(2),
   phone: z.string().min(10),
   email: z.string().email(),
-  license_no: z.string().min(5),
+  license_no: z.string().min(5).nullable(),
   verified: z.boolean(),
   verification_payment_ref: z.string().nullable(),
   paystack_subaccount: z.string().nullable(),
+  bank_code: z.string().nullable(),
+  account_number: z.string().nullable(),
+  account_name: z.string().nullable(),
+  paystack_recipient_code: z.string().nullable(),
   hourly_rate: z.number().positive(),
   online_status: z.enum([OnlineStatus.ONLINE, OnlineStatus.OFFLINE]),
   current_location: z.object({
@@ -68,8 +72,23 @@ export const insertDriverSchema = z.object({
   hourly_rate: z.number().positive("Hourly rate must be positive"),
 });
 
+export const updateDriverProfileSchema = z.object({
+  full_name: z.string().min(2, "Name must be at least 2 characters").optional(),
+  phone: z.string().min(10, "Valid phone number required").optional(),
+  license_no: z.string().min(5, "Valid license number required").optional(),
+  hourly_rate: z.number().positive("Hourly rate must be positive").optional(),
+});
+
+export const updateDriverBankSchema = z.object({
+  bank_code: z.string().min(3, "Bank code required"),
+  account_number: z.string().min(10, "Valid account number required"),
+  account_name: z.string().min(2, "Account name required"),
+});
+
 export type Driver = z.infer<typeof driverSchema>;
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
+export type UpdateDriverProfile = z.infer<typeof updateDriverProfileSchema>;
+export type UpdateDriverBank = z.infer<typeof updateDriverBankSchema>;
 
 // ============================================================================
 // CLIENT SCHEMAS
