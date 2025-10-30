@@ -177,6 +177,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update driver profile
+  app.patch("/api/drivers/profile", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const updates = req.body;
+      
+      // Remove fields that shouldn't be updated directly
+      delete updates.id;
+      delete updates.user_id;
+      delete updates.verified;
+      delete updates.created_at;
+      delete updates.email;
+
+      const { data, error } = await supabase
+        .from('drivers')
+        .update(updates)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to update profile" });
+      }
+
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Update driver bank account
+  app.patch("/api/drivers/bank-account", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { bank_code, account_number, account_name } = req.body;
+
+      if (!bank_code || !account_number || !account_name) {
+        return res.status(400).json({ error: "All bank details are required" });
+      }
+
+      // Get driver
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(404).json({ error: "Driver not found" });
+      }
+
+      // Update bank account using service
+      const result = await updateDriverBankDetails(driver.id, {
+        bank_code,
+        account_number,
+        account_name,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({ success: true, data: result.data });
+    } catch (error) {
+      console.error('Error updating bank account:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Search nearby drivers
   app.get("/api/drivers/nearby", async (req, res) => {
     try {
