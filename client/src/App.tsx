@@ -33,7 +33,32 @@ function Router() {
 }
 
 function App() {
-  const { setUser, setRole, setIsLoading } = useAuthStore();
+  const { setUser, setRole, setProfile, setIsLoading } = useAuthStore();
+
+  const fetchProfile = async (user: any, accessToken: string) => {
+    const role = user.user_metadata?.role;
+    if (!role) return;
+
+    const endpoint = role === 'driver' ? '/api/drivers/me' :
+                    role === 'client' ? '/api/clients/me' :
+                    role === 'admin' ? '/api/admin/me' : null;
+    
+    if (endpoint) {
+      try {
+        const response = await fetch(endpoint, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        if (response.ok) {
+          const profile = await response.json();
+          setProfile(profile);
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+      }
+    }
+  };
 
   useEffect(() => {
     // Get initial session
@@ -42,6 +67,9 @@ function App() {
         setUser(session.user);
         const role = session.user.user_metadata?.role;
         setRole(role);
+        if (session.access_token) {
+          fetchProfile(session.user, session.access_token);
+        }
       }
       setIsLoading(false);
     });
@@ -54,15 +82,19 @@ function App() {
         setUser(session.user);
         const role = session.user.user_metadata?.role;
         setRole(role);
+        if (session.access_token) {
+          fetchProfile(session.user, session.access_token);
+        }
       } else {
         setUser(null);
         setRole(null);
+        setProfile(null);
       }
       setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [setUser, setRole, setIsLoading]);
+  }, [setUser, setRole, setProfile, setIsLoading]);
 
   return (
     <QueryClientProvider client={queryClient}>

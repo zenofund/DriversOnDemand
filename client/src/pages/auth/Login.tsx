@@ -38,6 +38,29 @@ export default function Login() {
         const userRole = data.user.user_metadata?.role;
         setRole(userRole);
 
+        // Fetch and set the profile based on role
+        if (userRole) {
+          const endpoint = userRole === 'driver' ? '/api/drivers/me' :
+                          userRole === 'client' ? '/api/clients/me' :
+                          userRole === 'admin' ? '/api/admin/me' : null;
+          
+          if (endpoint) {
+            try {
+              const response = await fetch(endpoint, {
+                headers: {
+                  'Authorization': `Bearer ${data.session?.access_token}`,
+                },
+              });
+              if (response.ok) {
+                const profile = await response.json();
+                setProfile(profile);
+              }
+            } catch (err) {
+              console.error('Failed to fetch profile:', err);
+            }
+          }
+        }
+
         toast({
           title: 'Welcome back!',
           description: 'You have successfully logged in.',
