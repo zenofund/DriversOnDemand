@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { Driver } from '@shared/schema';
+import { ThemeToggle } from './ThemeToggle';
 
 interface DashboardSidebarProps {
   role: 'driver' | 'client' | 'admin';
@@ -130,8 +131,12 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="p-4 border-t border-sidebar-border">
+      {/* Logout & Theme */}
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-muted-foreground">Theme</span>
+          <ThemeToggle />
+        </div>
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
