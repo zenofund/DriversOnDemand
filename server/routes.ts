@@ -6,6 +6,9 @@ import crypto from "crypto";
 // Supabase client setup
 import { createClient } from '@supabase/supabase-js';
 
+// Schemas
+import { updateDriverProfileSchema, updateDriverBankSchema } from '../shared/schema';
+
 // Payout service
 import { getDriverPendingSettlements, processDriverPayout, getDriverPayoutHistory, processAutomatedPayouts } from './services/payoutService';
 
@@ -398,6 +401,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (error) {
         return res.status(500).json({ error: "Failed to fetch bookings" });
+      }
+
+      res.json(data || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get booking history (completed/cancelled)
+  app.get("/api/bookings/history", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Get driver id
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.json([]);
+      }
+
+      // Get completed or cancelled bookings
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .eq('driver_id', driver.id)
+        .in('booking_status', ['completed', 'cancelled'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to fetch booking history" });
       }
 
       res.json(data || []);
