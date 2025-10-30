@@ -289,6 +289,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Toggle driver online status
+  app.post("/api/drivers/toggle-online", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { online } = req.body;
+      if (typeof online !== 'boolean') {
+        return res.status(400).json({ error: "Invalid request: 'online' must be a boolean" });
+      }
+
+      const onlineStatus = online ? 'online' : 'offline';
+
+      const { data, error } = await supabase
+        .from('drivers')
+        .update({ online_status: onlineStatus })
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating online status:', error);
+        return res.status(500).json({ error: "Failed to update online status" });
+      }
+
+      res.json({ 
+        success: true, 
+        online_status: data.online_status,
+        message: `Driver is now ${onlineStatus}` 
+      });
+    } catch (error) {
+      console.error('Error in toggle-online endpoint:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Search nearby drivers
   app.get("/api/drivers/nearby", async (req, res) => {
     try {
