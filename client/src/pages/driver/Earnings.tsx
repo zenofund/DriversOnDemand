@@ -40,13 +40,17 @@ export default function Earnings() {
     }
   }, [user, setLocation]);
 
-  const { data: pendingSettlements = [], isLoading: loadingPending } = useQuery<PendingSettlement[]>({
+  const { data: pendingSettlementsData, isLoading: loadingPending } = useQuery<PendingSettlement[]>({
     queryKey: ['/api/payouts/pending'],
   });
 
-  const { data: payoutHistory = [], isLoading: loadingHistory } = useQuery<PayoutHistory[]>({
+  const { data: payoutHistoryData, isLoading: loadingHistory } = useQuery<PayoutHistory[]>({
     queryKey: ['/api/payouts/history'],
   });
+
+  // Ensure data is always an array
+  const pendingSettlements = Array.isArray(pendingSettlementsData) ? pendingSettlementsData : [];
+  const payoutHistory = Array.isArray(payoutHistoryData) ? payoutHistoryData : [];
 
   const requestPayoutMutation = useMutation({
     mutationFn: async () => {
