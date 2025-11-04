@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { Car, DollarSign, Star, Clock, Check, X } from 'lucide-react';
+import { Car, DollarSign, Star, Clock, Check, X, ShieldCheck } from 'lucide-react';
 import type { Driver, BookingWithDetails } from '@shared/schema';
 import { useGeolocation } from '@/hooks/useGeolocation';
 
@@ -33,9 +33,20 @@ export default function DriverDashboard() {
 
     if (profile) {
       const driver = profile as Driver;
+      
+      // Redirect unverified drivers to verification page
+      if (!driver.verified) {
+        toast({
+          title: 'Verification required',
+          description: 'Please complete your verification to access the dashboard',
+        });
+        setLocation('/driver/verification');
+        return;
+      }
+
       setIsOnline(driver.online_status === 'online');
     }
-  }, [user, profile, setLocation]);
+  }, [user, profile, setLocation, toast]);
 
   const { data: driverData } = useQuery<Driver>({
     queryKey: ['/api/drivers/me'],
@@ -260,6 +271,16 @@ export default function DriverDashboard() {
   };
 
   const handleToggleOnline = (online: boolean) => {
+    // Check if driver is verified
+    if (driver && !driver.verified) {
+      toast({
+        title: 'Verification required',
+        description: 'You must complete verification before going online',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Update desired state immediately
     desiredOnlineStateRef.current = online;
     
@@ -294,9 +315,17 @@ export default function DriverDashboard() {
           <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div>
-              <h1 className="text-3xl font-bold font-heading text-foreground">
-                Dashboard
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold font-heading text-foreground">
+                  Dashboard
+                </h1>
+                {driver.verified && (
+                  <div className="flex items-center gap-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-sm font-medium">
+                    <ShieldCheck className="h-4 w-4" />
+                    Verified
+                  </div>
+                )}
+              </div>
               <p className="text-muted-foreground mt-1">
                 Welcome back, {driver.full_name}
               </p>

@@ -31,14 +31,25 @@ interface PayoutHistory {
 
 export default function Earnings() {
   const [, setLocation] = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, profile, logout } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
     if (!user) {
       setLocation('/auth/login');
+      return;
     }
-  }, [user, setLocation]);
+
+    // Check if driver is verified
+    if (profile && !(profile as any).verified) {
+      toast({
+        title: 'Verification required',
+        description: 'Please complete your verification first',
+      });
+      setLocation('/driver/verification');
+      return;
+    }
+  }, [user, profile, setLocation, toast]);
 
   const { data: pendingSettlementsData, isLoading: loadingPending } = useQuery<PendingSettlement[]>({
     queryKey: ['/api/payouts/pending'],

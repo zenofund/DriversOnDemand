@@ -60,6 +60,16 @@ export default function Settings() {
       return;
     }
 
+    // Check if driver is verified
+    if (profile && !(profile as Driver).verified) {
+      toast({
+        title: 'Verification required',
+        description: 'Please complete your verification first',
+      });
+      setLocation('/driver/verification');
+      return;
+    }
+
     if (profile) {
       const driver = profile as Driver;
       setProfileForm({
@@ -77,7 +87,7 @@ export default function Settings() {
         setVerifiedAccountName(driver.account_name || '');
       }
     }
-  }, [user, profile, setLocation]);
+  }, [user, profile, setLocation, toast]);
 
   const { data: banks = [] } = useQuery<Bank[]>({
     queryKey: ['/api/banks'],

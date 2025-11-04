@@ -13,6 +13,7 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/auth/Login";
 import Signup from "@/pages/auth/Signup";
 import DriverDashboard from "@/pages/driver/DriverDashboard";
+import DriverVerification from "@/pages/driver/Verification";
 import DriverSettings from "@/pages/driver/Settings";
 import ActiveBookings from "@/pages/driver/ActiveBookings";
 import Earnings from "@/pages/driver/Earnings";
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/auth/login" component={Login} />
       <Route path="/auth/signup" component={Signup} />
+      <Route path="/driver/verification" component={DriverVerification} />
       <Route path="/driver/dashboard" component={DriverDashboard} />
       <Route path="/driver/bookings" component={ActiveBookings} />
       <Route path="/driver/earnings" component={Earnings} />
