@@ -33,7 +33,7 @@ type PasswordChange = z.infer<typeof passwordChangeSchema>;
 
 export default function ClientSettings() {
   const [, setLocation] = useLocation();
-  const { user, profile } = useAuthStore();
+  const { user } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -138,7 +138,7 @@ export default function ClientSettings() {
     changePasswordMutation.mutate(data);
   };
 
-  if (!user || !profile) {
+  if (!user) {
     return null;
   }
 
