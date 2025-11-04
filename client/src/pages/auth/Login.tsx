@@ -39,6 +39,7 @@ export default function Login() {
         setRole(userRole);
 
         // Fetch and set the profile based on role
+        let profile = null;
         if (userRole) {
           const endpoint = userRole === 'driver' ? '/api/drivers/me' :
                           userRole === 'client' ? '/api/clients/me' :
@@ -52,7 +53,7 @@ export default function Login() {
                 },
               });
               if (response.ok) {
-                const profile = await response.json();
+                profile = await response.json();
                 setProfile(profile);
               }
             } catch (err) {
@@ -66,9 +67,14 @@ export default function Login() {
           description: 'You have successfully logged in.',
         });
 
-        // Redirect based on role
+        // Redirect based on role and verification status
         if (userRole === 'driver') {
-          setLocation('/driver/dashboard');
+          // Check if driver is verified
+          if (profile && !profile.verified) {
+            setLocation('/driver/verification');
+          } else {
+            setLocation('/driver/dashboard');
+          }
         } else if (userRole === 'client') {
           setLocation('/client/dashboard');
         } else if (userRole === 'admin') {

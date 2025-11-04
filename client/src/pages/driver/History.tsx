@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
@@ -27,13 +28,25 @@ interface Booking {
 
 export default function History() {
   const [, setLocation] = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, profile, logout } = useAuthStore();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!user) {
       setLocation('/auth/login');
+      return;
     }
-  }, [user, setLocation]);
+
+    // Check if driver is verified
+    if (profile && !(profile as any).verified) {
+      toast({
+        title: 'Verification required',
+        description: 'Please complete your verification first',
+      });
+      setLocation('/driver/verification');
+      return;
+    }
+  }, [user, profile, setLocation, toast]);
 
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
     queryKey: ['/api/bookings/history'],

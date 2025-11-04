@@ -69,15 +69,27 @@ export default function Signup() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Account created!',
-        description: 'Please check your email to verify your account.',
-      });
+      if (formData.role === 'driver') {
+        toast({
+          title: 'Account created!',
+          description: 'Complete your verification to start earning.',
+        });
 
-      // Redirect to verification or login
-      setTimeout(() => {
-        setLocation('/auth/login');
-      }, 2000);
+        // Redirect drivers to verification page
+        setTimeout(() => {
+          setLocation('/auth/login');
+        }, 2000);
+      } else {
+        toast({
+          title: 'Account created!',
+          description: 'Please check your email to verify your account.',
+        });
+
+        // Redirect to login
+        setTimeout(() => {
+          setLocation('/auth/login');
+        }, 2000);
+      }
     } catch (error: any) {
       toast({
         title: 'Signup failed',

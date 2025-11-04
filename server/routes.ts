@@ -405,6 +405,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // CLIENT ENDPOINTS
+  // ============================================================================
+
+  // Get current client profile
+  app.get("/api/clients/me", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+      if (authError || !user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ============================================================================
   // BOOKING ENDPOINTS
   // ============================================================================
 
