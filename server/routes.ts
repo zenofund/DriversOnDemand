@@ -804,28 +804,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .digest('hex');
 
       if (hash !== req.headers['x-paystack-signature']) {
+        console.error('Paystack webhook: Invalid signature');
         return res.status(400).json({ error: "Invalid signature" });
       }
 
       const event = req.body;
+      console.log('Paystack webhook event:', event.event, 'metadata:', event.data?.metadata);
 
       if (event.event === 'charge.success') {
         const { reference, amount, metadata } = event.data;
 
         // Handle verification payment
         if (metadata?.type === 'verification') {
-          await supabase
+          console.log('Processing verification payment for driver:', metadata.driver_id);
+          
+          const { data: updatedDriver, error: updateError } = await supabase
             .from('drivers')
             .update({
               verified: true,
               verification_payment_ref: reference,
             })
-            .eq('id', metadata.driver_id);
+            .eq('id', metadata.driver_id)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('Failed to update driver verification:', updateError);
+            throw updateError;
+          }
+
+          console.log('Driver verified successfully:', updatedDriver.id);
 
           const verificationAmount = amount / 100;
           
           // Create transaction record (verification fee goes 100% to platform)
-          await supabase
+          const { error: txError } = await supabase
             .from('transactions')
             .insert([{
               driver_id: metadata.driver_id,
@@ -837,11 +850,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               settled: true,
               created_at: new Date().toISOString(),
             }]);
+
+          if (txError) {
+            console.error('Failed to create verification transaction:', txError);
+            // Don't throw - driver is already verified, transaction is just for record keeping
+          }
         }
 
         // Handle booking payment
         if (metadata?.type === 'booking') {
-          await supabase
+          console.log('Processing booking payment for booking:', metadata.booking_id);
+          
+          const { error: bookingError } = await supabase
             .from('bookings')
             .update({
               payment_status: 'paid',
@@ -849,11 +869,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })
             .eq('id', metadata.booking_id);
 
+          if (bookingError) {
+            console.error('Failed to update booking payment status:', bookingError);
+            throw bookingError;
+          }
+
           const bookingAmount = amount / 100;
           
           // Create transaction record
           // Mark as settled=false - will be settled when driver completes and confirms
-          await supabase
+          const { error: txError } = await supabase
             .from('transactions')
             .insert([{
               booking_id: metadata.booking_id,
@@ -866,11 +891,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               settled: false,
               created_at: new Date().toISOString(),
             }]);
+
+          if (txError) {
+            console.error('Failed to create booking transaction:', txError);
+            throw txError;
+          }
+
+          console.log('Booking payment processed successfully');
         }
       }
 
       res.sendStatus(200);
     } catch (error) {
+      console.error('Paystack webhook error:', error);
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
@@ -905,6 +938,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Driver not found" });
       }
 
+      // Construct the callback URL from the request
+      const callbackUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      const fullCallbackUrl = `${callbackUrl}/driver/dashboard`;
+
       // Initialize Paystack payment
       const response = await fetch('https://api.paystack.co/transaction/initialize', {
         method: 'POST',
@@ -920,7 +957,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             driver_id: driver.id,
             driver_name: driver.full_name,
           },
-          callback_url: `${process.env.VITE_SUPABASE_URL || ''}/driver/dashboard`,
+          callback_url: fullCallbackUrl,
         }),
       });
 
@@ -983,6 +1020,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid booking amount" });
       }
 
+      // Construct the callback URL from the request
+      const callbackUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      const fullCallbackUrl = `${callbackUrl}/client/bookings`;
+
       // Prepare payment request - simple charge, no split yet
       // Money stays in platform balance until completion is confirmed
       const paymentData: any = {
@@ -993,7 +1034,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           booking_id: bookingId,
           driver_id: booking.driver_id,
         },
-        callback_url: `${process.env.VITE_SUPABASE_URL || ''}/client/bookings`,
+        callback_url: fullCallbackUrl,
       };
 
       // Initialize Paystack payment (no split - hold funds in platform balance)
