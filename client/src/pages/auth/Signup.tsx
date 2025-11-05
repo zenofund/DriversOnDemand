@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { BadgeCheck } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export default function Signup() {
   const [, setLocation] = useLocation();
@@ -106,11 +106,8 @@ export default function Signup() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/">
-            <a className="inline-flex items-center gap-2 text-2xl font-bold font-heading mb-2">
-              <div className="h-10 w-10 rounded-md bg-primary flex items-center justify-center">
-                <BadgeCheck className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <span>Drivers On Demand</span>
+            <a className="inline-flex items-center mb-2">
+              <Logo size="lg" />
             </a>
           </Link>
         </div>

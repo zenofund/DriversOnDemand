@@ -19,6 +19,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import type { Driver } from '@shared/schema';
 import { ThemeToggle } from './ThemeToggle';
+import { Logo } from './Logo';
 
 interface DashboardSidebarProps {
   role: 'driver' | 'client' | 'admin';
@@ -80,6 +81,13 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
 
   return (
     <div className="h-screen w-64 bg-sidebar border-r flex flex-col">
+      {/* Logo Section */}
+      <div className="p-6 border-b border-sidebar-border">
+        <Link href={role === 'admin' ? '/admin/dashboard' : role === 'driver' ? '/driver/dashboard' : '/client/dashboard'}>
+          <Logo size="sm" />
+        </Link>
+      </div>
+
       {/* Profile Section */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3 mb-4">

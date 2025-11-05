@@ -1,8 +1,9 @@
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Menu, X, BadgeCheck } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { ThemeToggle } from './ThemeToggle';
+import { Logo } from './Logo';
 
 export function PublicHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -12,11 +13,8 @@ export function PublicHeader() {
       <div className="mx-auto max-w-7xl px-6">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold font-heading">
-            <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-              <BadgeCheck className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-foreground">Drivers On Demand</span>
+          <Link href="/" className="flex items-center">
+            <Logo />
           </Link>
 
           {/* Desktop Navigation - removed, simplified header */}
