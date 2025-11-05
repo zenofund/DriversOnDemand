@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, useSearch } from 'wouter';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,9 +16,12 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 
 export default function DriverDashboard() {
   const [, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(useSearch());
+  const paymentSuccess = searchParams.get('payment_success') === 'true';
   const { user, profile, logout } = useAuthStore();
   const { toast } = useToast();
   const [isOnline, setIsOnline] = useState(false);
+  const [isWaitingForVerification, setIsWaitingForVerification] = useState(paymentSuccess);
   const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isTogglingOnlineRef = useRef(false);
   const hasValidLocationRef = useRef(false);
@@ -34,6 +37,11 @@ export default function DriverDashboard() {
     if (profile) {
       const driver = profile as Driver;
       
+      // If waiting for verification after payment, don't redirect yet
+      if (isWaitingForVerification) {
+        return;
+      }
+      
       // Redirect unverified drivers to verification page
       if (!driver.verified) {
         toast({
@@ -46,13 +54,56 @@ export default function DriverDashboard() {
 
       setIsOnline(driver.online_status === 'online');
     }
-  }, [user, profile, setLocation, toast]);
+  }, [user, profile, setLocation, toast, isWaitingForVerification]);
 
-  const { data: driverData } = useQuery<Driver>({
+  const { data: driverData, refetch: refetchDriverData } = useQuery<Driver>({
     queryKey: ['/api/drivers/me'],
     enabled: !!user,
     refetchOnWindowFocus: false,
+    refetchInterval: isWaitingForVerification ? 2000 : false, // Poll every 2 seconds when waiting
   });
+
+  // Handle payment success and wait for verification
+  useEffect(() => {
+    if (!isWaitingForVerification || !driverData) return;
+
+    // Check if driver is now verified
+    if (driverData.verified) {
+      setIsWaitingForVerification(false);
+      
+      // Update auth store profile with verified driver data
+      const { setProfile } = useAuthStore.getState();
+      setProfile(driverData);
+      
+      // Remove query param from URL
+      window.history.replaceState({}, '', '/driver/dashboard');
+      
+      toast({
+        title: 'Verification successful!',
+        description: 'Your account has been verified. You can now start accepting bookings.',
+        duration: 5000,
+      });
+    }
+  }, [isWaitingForVerification, driverData, toast]);
+
+  // Set timeout for verification wait
+  useEffect(() => {
+    if (!isWaitingForVerification) return;
+
+    // After 30 seconds, stop waiting and show message
+    const timeout = setTimeout(() => {
+      if (isWaitingForVerification) {
+        setIsWaitingForVerification(false);
+        toast({
+          title: 'Verification is processing',
+          description: 'Your payment is being processed. Please refresh the page in a few moments.',
+          duration: 8000,
+        });
+      }
+    }, 30000);
+
+    return () => clearTimeout(timeout);
+  }, [isWaitingForVerification, toast]);
 
   const { data: activeBookings = [] } = useQuery<BookingWithDetails[]>({
     queryKey: ['/api/bookings/active'],
@@ -323,6 +374,34 @@ export default function DriverDashboard() {
   }
 
   const driver = profile as Driver;
+
+  // Show waiting screen when processing verification payment
+  if (isWaitingForVerification) {
+    return (
+      <div className="flex h-screen bg-background items-center justify-center">
+        <Card className="max-w-md w-full mx-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-6 w-6 text-primary animate-pulse" />
+              Processing Verification
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              Thank you for your payment! We're confirming your verification status...
+            </p>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+              <span>This usually takes just a few seconds</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              If this takes too long, please refresh the page or contact support.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">

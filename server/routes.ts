@@ -1479,7 +1479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Construct the callback URL from the request
       const callbackUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-      const fullCallbackUrl = `${callbackUrl}/driver/dashboard`;
+      const fullCallbackUrl = `${callbackUrl}/driver/dashboard?payment_success=true`;
 
       // Initialize Paystack payment
       const response = await fetch('https://api.paystack.co/transaction/initialize', {
