@@ -9,21 +9,26 @@ import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { Car, MapPin, Clock, Phone, User, CheckCircle } from 'lucide-react';
+import { Car, MapPin, Clock, Phone, User, CheckCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Booking {
-  id: number;
-  client_id: number;
-  pickup_location: any;
-  dropoff_location: any;
+  id: string;
+  client_id: string;
+  start_location: string;
+  destination: string;
+  start_coordinates: any;
+  destination_coordinates: any;
   booking_status: string;
   payment_status: string;
-  total_fare: number;
+  total_cost: number;
   created_at: string;
+  driver_confirmed: boolean;
+  client_confirmed: boolean;
   scheduled_time?: string;
   client: {
-    name: string;
+    full_name: string;
     phone: string;
   };
 }
@@ -54,8 +59,34 @@ export default function ActiveBookings() {
     queryKey: ['/api/bookings/active'],
   });
 
+  // Subscribe to booking updates for real-time confirmation status
+  useEffect(() => {
+    if (!user || !profile) return;
+
+    const channel = supabase
+      .channel('booking-confirmations')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'bookings',
+          filter: `driver_id=eq.${(profile as any).id}`,
+        },
+        () => {
+          // Refetch bookings when any booking is updated (e.g., client confirms)
+          queryClient.invalidateQueries({ queryKey: ['/api/bookings/active'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user, profile]);
+
   const acceptBookingMutation = useMutation({
-    mutationFn: async (bookingId: number) => {
+    mutationFn: async (bookingId: string) => {
       const res = await apiRequest('POST', `/api/bookings/${bookingId}/accept`, {});
       return await res.json();
     },
@@ -70,6 +101,30 @@ export default function ActiveBookings() {
       toast({
         title: 'Failed to accept',
         description: 'Could not accept this booking',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const confirmCompletionMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      return apiRequest('POST', `/api/bookings/${bookingId}/driver-confirm`);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/history'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/drivers/stats'] });
+      
+      const response = data as any;
+      toast({
+        title: 'Completion Confirmed',
+        description: response?.message || 'You have confirmed the trip completion.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to confirm completion',
         variant: 'destructive',
       });
     },
@@ -163,7 +218,7 @@ export default function ActiveBookings() {
                       <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
                         <User className="h-5 w-5 text-muted-foreground" />
                         <div className="flex-1">
-                          <p className="font-medium text-sm">{booking.client.name}</p>
+                          <p className="font-medium text-sm">{booking.client.full_name}</p>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
                             <Phone className="h-3 w-3" />
                             {booking.client.phone}
@@ -178,16 +233,16 @@ export default function ActiveBookings() {
                           <div>
                             <p className="text-sm font-medium">Pickup</p>
                             <p className="text-sm text-muted-foreground">
-                              {booking.pickup_location?.address || 'Location not specified'}
+                              {booking.start_location || 'Location not specified'}
                             </p>
                           </div>
                         </div>
                         <div className="flex gap-3">
                           <MapPin className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                           <div>
-                            <p className="text-sm font-medium">Dropoff</p>
+                            <p className="text-sm font-medium">Destination</p>
                             <p className="text-sm text-muted-foreground">
-                              {booking.dropoff_location?.address || 'Location not specified'}
+                              {booking.destination || 'Location not specified'}
                             </p>
                           </div>
                         </div>
@@ -201,24 +256,66 @@ export default function ActiveBookings() {
                         </div>
                       )}
 
+                      {/* Completion Confirmation Status */}
+                      {booking.booking_status === 'ongoing' && (
+                        <Alert className={booking.driver_confirmed ? 'border-green-600 bg-green-50 dark:bg-green-950/20' : 'border-blue-600 bg-blue-50 dark:bg-blue-950/20'}>
+                          <AlertCircle className={booking.driver_confirmed ? 'h-4 w-4 text-green-600' : 'h-4 w-4 text-blue-600'} />
+                          <AlertDescription className="text-sm">
+                            {booking.driver_confirmed && booking.client_confirmed && (
+                              <span className="text-green-700 dark:text-green-400 font-medium">
+                                Both parties confirmed. Payment processing...
+                              </span>
+                            )}
+                            {booking.driver_confirmed && !booking.client_confirmed && (
+                              <span className="text-blue-700 dark:text-blue-400">
+                                You confirmed completion. Waiting for client confirmation.
+                              </span>
+                            )}
+                            {!booking.driver_confirmed && booking.client_confirmed && (
+                              <span className="text-blue-700 dark:text-blue-400">
+                                Client confirmed completion. Please confirm on your end.
+                              </span>
+                            )}
+                            {!booking.driver_confirmed && !booking.client_confirmed && (
+                              <span className="text-blue-700 dark:text-blue-400">
+                                Trip in progress. Confirm completion when finished.
+                              </span>
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
                       {/* Fare and Actions */}
-                      <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center justify-between pt-2 border-t flex-wrap gap-4">
                         <div>
                           <p className="text-sm text-muted-foreground">Total Fare</p>
                           <p className="text-2xl font-bold text-foreground">
-                            ₦{booking.total_fare.toLocaleString()}
+                            ₦{booking.total_cost.toLocaleString()}
                           </p>
                         </div>
-                        {booking.booking_status === 'pending' && (
-                          <Button
-                            onClick={() => acceptBookingMutation.mutate(booking.id)}
-                            disabled={acceptBookingMutation.isPending}
-                            data-testid={`button-accept-${booking.id}`}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Accept Booking
-                          </Button>
-                        )}
+                        <div className="flex gap-2">
+                          {booking.booking_status === 'pending' && (
+                            <Button
+                              onClick={() => acceptBookingMutation.mutate(booking.id)}
+                              disabled={acceptBookingMutation.isPending}
+                              data-testid={`button-accept-${booking.id}`}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Accept Booking
+                            </Button>
+                          )}
+                          {booking.booking_status === 'ongoing' && !booking.driver_confirmed && (
+                            <Button
+                              onClick={() => confirmCompletionMutation.mutate(booking.id)}
+                              disabled={confirmCompletionMutation.isPending}
+                              className="bg-green-600 hover:bg-green-700"
+                              data-testid={`button-confirm-${booking.id}`}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              {confirmCompletionMutation.isPending ? 'Confirming...' : 'Confirm Completion'}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
