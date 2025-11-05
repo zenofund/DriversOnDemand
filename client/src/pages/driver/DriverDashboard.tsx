@@ -264,6 +264,29 @@ export default function DriverDashboard() {
     },
   });
 
+  const confirmCompletionMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      return apiRequest('POST', `/api/bookings/${bookingId}/driver-confirm`);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/drivers/stats'] });
+      
+      const response = data as any;
+      toast({
+        title: 'Completion Confirmed',
+        description: response?.message || 'You have confirmed the trip completion.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to confirm completion',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     logout();
@@ -385,6 +408,28 @@ export default function DriverDashboard() {
                         <StatusBadge status={booking.booking_status} type="booking" />
                       </div>
 
+                      {/* Completion Confirmation Status */}
+                      {booking.booking_status === 'ongoing' && (
+                        <div className={`text-xs p-2 rounded-md ${
+                          booking.driver_confirmed 
+                            ? 'bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800' 
+                            : 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
+                        }`}>
+                          {booking.driver_confirmed && booking.client_confirmed && (
+                            <span className="font-medium">✓ Both parties confirmed. Payment processing...</span>
+                          )}
+                          {booking.driver_confirmed && !booking.client_confirmed && (
+                            <span>✓ You confirmed. Waiting for client confirmation.</span>
+                          )}
+                          {!booking.driver_confirmed && booking.client_confirmed && (
+                            <span>Client confirmed. Please confirm on your end.</span>
+                          )}
+                          {!booking.driver_confirmed && !booking.client_confirmed && (
+                            <span>Trip in progress. Confirm when finished.</span>
+                          )}
+                        </div>
+                      )}
+
                       {booking.booking_status === 'pending' && (
                         <div className="flex gap-2">
                           <Button
@@ -405,6 +450,18 @@ export default function DriverDashboard() {
                             Decline
                           </Button>
                         </div>
+                      )}
+                      
+                      {booking.booking_status === 'ongoing' && !booking.driver_confirmed && (
+                        <Button
+                          size="sm"
+                          onClick={() => confirmCompletionMutation.mutate(booking.id)}
+                          disabled={confirmCompletionMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          {confirmCompletionMutation.isPending ? 'Confirming...' : 'Confirm Completion'}
+                        </Button>
                       )}
                     </div>
                   ))}
