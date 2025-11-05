@@ -21,6 +21,7 @@ import { updateDriverProfileSchema, updateDriverBankSchema } from '@shared/schem
 import type { Driver } from '@shared/schema';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { LocationMap } from '@/components/LocationMap';
+import { ProfilePictureUpload } from '@/components/ProfilePictureUpload';
 
 interface Bank {
   name: string;
@@ -320,6 +321,29 @@ export default function Settings() {
                 Manage your account settings and preferences
               </p>
             </div>
+
+            {/* Profile Picture */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Picture</CardTitle>
+                <CardDescription>
+                  Upload a profile picture to help clients identify you
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {driverData && (
+                  <ProfilePictureUpload
+                    currentImageUrl={driverData.profile_picture_url}
+                    userName={driverData.full_name}
+                    userType="driver"
+                    userId={driverData.id}
+                    onUploadSuccess={() => {
+                      queryClient.invalidateQueries({ queryKey: ['/api/drivers/me'] });
+                    }}
+                  />
+                )}
+              </CardContent>
+            </Card>
 
             {/* Profile Information */}
             <Card>

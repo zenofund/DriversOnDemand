@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -13,6 +13,8 @@ import {
   Users,
   Car,
   BarChart3,
+  AlertCircle,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { Driver } from '@shared/schema';
@@ -34,6 +36,7 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
       return [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/driver/dashboard' },
         { icon: Car, label: 'Active Bookings', path: '/driver/bookings' },
+        { icon: BarChart3, label: 'My Reviews', path: '/driver/reviews' },
         { icon: DollarSign, label: 'Earnings', path: '/driver/earnings' },
         { icon: History, label: 'History', path: '/driver/history' },
         { icon: Settings, label: 'Settings', path: '/driver/settings' },
@@ -52,11 +55,11 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
     // Admin
     return [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
-      { icon: Users, label: 'Drivers', path: '/admin/drivers' },
-      { icon: Users, label: 'Clients', path: '/admin/clients' },
+      { icon: Users, label: 'Users', path: '/admin/users' },
       { icon: Car, label: 'Bookings', path: '/admin/bookings' },
-      { icon: DollarSign, label: 'Transactions', path: '/admin/transactions' },
-      { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
+      { icon: CreditCard, label: 'Transactions', path: '/admin/transactions' },
+      { icon: AlertCircle, label: 'Disputes', path: '/admin/disputes' },
+      { icon: Settings, label: 'Settings', path: '/admin/settings' },
     ];
   };
 
@@ -80,7 +83,11 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
       {/* Profile Section */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3 mb-4">
-          <Avatar className="h-12 w-12">
+          <Avatar className="h-12 w-12 border-2 border-primary/10">
+            <AvatarImage 
+              src={profile?.profile_picture_url || undefined} 
+              alt={getProfileName()} 
+            />
             <AvatarFallback className="bg-primary/10 text-primary font-semibold">
               {getProfileInitials()}
             </AvatarFallback>

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Star, MapPin } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Star, MapPin, MessageSquare } from 'lucide-react';
+import { DriverReviewsDialog } from '@/components/DriverReviewsDialog';
 import type { Driver } from '@shared/schema';
 
 interface DriverCardProps {
@@ -11,13 +13,20 @@ interface DriverCardProps {
 }
 
 export function DriverCard({ driver, distance, onSelect }: DriverCardProps) {
+  const [showReviews, setShowReviews] = useState(false);
+
   return (
-    <Card className="hover:shadow-xl transition-shadow cursor-pointer" data-testid={`driver-card-${driver.id}`}>
+    <>
+    <Card className="hover:shadow-xl transition-shadow" data-testid={`driver-card-${driver.id}`}>
       <CardContent className="p-4">
         <div className="flex items-center gap-4">
           {/* Avatar with online indicator */}
           <div className="relative">
-            <Avatar className="h-16 w-16">
+            <Avatar className="h-16 w-16 border-2 border-primary/10">
+              <AvatarImage 
+                src={driver.profile_picture_url || undefined} 
+                alt={driver.full_name}
+              />
               <AvatarFallback className="text-lg font-semibold bg-primary/10 text-primary">
                 {driver.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </AvatarFallback>
@@ -40,6 +49,18 @@ export function DriverCard({ driver, distance, onSelect }: DriverCardProps) {
               <span className="text-xs text-muted-foreground ml-1">
                 ({driver.total_trips} trips)
               </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs ml-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowReviews(true);
+                }}
+              >
+                <MessageSquare className="h-3 w-3 mr-1" />
+                Reviews
+              </Button>
             </div>
             <div className="flex items-center gap-4 mt-2">
               <p className="text-sm font-medium text-foreground">
@@ -65,5 +86,13 @@ export function DriverCard({ driver, distance, onSelect }: DriverCardProps) {
         </div>
       </CardContent>
     </Card>
+
+    {/* Reviews Dialog */}
+    <DriverReviewsDialog
+      open={showReviews}
+      onOpenChange={setShowReviews}
+      driver={driver}
+    />
+    </>
   );
 }

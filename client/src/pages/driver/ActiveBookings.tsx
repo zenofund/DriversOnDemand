@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { Car, MapPin, Clock, Phone, User, CheckCircle, AlertCircle } from 'lucide-react';
+import { Car, MapPin, Clock, Phone, User, CheckCircle, AlertCircle, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -294,6 +294,18 @@ export default function ActiveBookings() {
                           </p>
                         </div>
                         <div className="flex gap-2">
+                          {/* Chat Button - Available for all active bookings */}
+                          {(booking.booking_status === 'accepted' || booking.booking_status === 'ongoing') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setLocation(`/driver/chat/${booking.id}`)}
+                            >
+                              <MessageCircle className="h-4 w-4 mr-2" />
+                              Chat
+                            </Button>
+                          )}
+                          
                           {booking.booking_status === 'pending' && (
                             <Button
                               onClick={() => acceptBookingMutation.mutate(booking.id)}

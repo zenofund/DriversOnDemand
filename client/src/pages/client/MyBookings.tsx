@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
-import { Calendar, MapPin, DollarSign, User, Clock } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, User, Clock, MessageCircle } from 'lucide-react';
 import { RatingDialog } from '@/components/RatingDialog';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 
@@ -205,7 +205,19 @@ export default function MyBookings() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t">
+                <div className="flex gap-2 pt-4 border-t flex-wrap">
+                  {/* Chat Button - Available for active bookings */}
+                  {(booking.booking_status === 'accepted' || booking.booking_status === 'ongoing') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLocation(`/client/chat/${booking.id}`)}
+                    >
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Chat
+                    </Button>
+                  )}
+                  
                   {booking.booking_status === 'ongoing' && !booking.client_confirmed && (
                     <Button
                       onClick={() => handleConfirmCompletion(booking.id)}
@@ -241,9 +253,10 @@ export default function MyBookings() {
           {/* Rating Dialog */}
           {selectedBookingForRating && (
             <RatingDialog
+              open={!!selectedBookingForRating}
+              onOpenChange={(open) => !open && setSelectedBookingForRating(null)}
               bookingId={selectedBookingForRating.id}
               driverName={selectedBookingForRating.driver.full_name}
-              onClose={() => setSelectedBookingForRating(null)}
             />
           )}
         </div>

@@ -16,6 +16,7 @@ import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { User, Lock } from 'lucide-react';
 import { insertClientSchema, type Client } from '@shared/schema';
 import { z } from 'zod';
+import { ProfilePictureUpload } from '@/components/ProfilePictureUpload';
 
 const profileUpdateSchema = insertClientSchema.partial();
 type ProfileUpdate = z.infer<typeof profileUpdateSchema>;
@@ -151,6 +152,29 @@ export default function ClientSettings() {
           <h1 className="text-3xl font-bold mb-6" data-testid="text-page-title">Settings</h1>
 
           <div className="space-y-6">
+            {/* Profile Picture */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Picture</CardTitle>
+                <CardDescription>
+                  Upload a profile picture for easy identification
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {clientData && (
+                  <ProfilePictureUpload
+                    currentImageUrl={clientData.profile_picture_url}
+                    userName={clientData.full_name}
+                    userType="client"
+                    userId={clientData.id}
+                    onUploadSuccess={() => {
+                      queryClient.invalidateQueries({ queryKey: ['/api/clients/me'] });
+                    }}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
             {/* Profile Information */}
             <Card>
               <CardHeader>
