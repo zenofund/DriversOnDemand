@@ -355,3 +355,98 @@ export const updateNotificationPreferencesSchema = z.object({
 export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
 export type NotificationLog = z.infer<typeof notificationLogSchema>;
 export type UpdateNotificationPreferences = z.infer<typeof updateNotificationPreferencesSchema>;
+
+// ============================================================================
+// DISPUTE SCHEMAS
+// ============================================================================
+
+export const DisputeType = {
+  PAYMENT: 'payment',
+  SERVICE_QUALITY: 'service_quality',
+  CANCELLATION: 'cancellation',
+  OTHER: 'other',
+} as const;
+
+export const DisputeStatus = {
+  OPEN: 'open',
+  INVESTIGATING: 'investigating',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed',
+} as const;
+
+export const DisputePriority = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  URGENT: 'urgent',
+} as const;
+
+export const disputeSchema = z.object({
+  id: z.string().uuid(),
+  booking_id: z.string().uuid(),
+  reported_by_user_id: z.string().uuid(),
+  reported_by_role: z.enum([UserRole.DRIVER, UserRole.CLIENT]),
+  dispute_type: z.enum([
+    DisputeType.PAYMENT,
+    DisputeType.SERVICE_QUALITY,
+    DisputeType.CANCELLATION,
+    DisputeType.OTHER,
+  ]),
+  description: z.string(),
+  status: z.enum([
+    DisputeStatus.OPEN,
+    DisputeStatus.INVESTIGATING,
+    DisputeStatus.RESOLVED,
+    DisputeStatus.CLOSED,
+  ]),
+  priority: z.enum([
+    DisputePriority.LOW,
+    DisputePriority.MEDIUM,
+    DisputePriority.HIGH,
+    DisputePriority.URGENT,
+  ]),
+  admin_notes: z.string().nullable(),
+  resolution: z.string().nullable(),
+  resolved_by: z.string().uuid().nullable(),
+  resolved_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const createDisputeSchema = z.object({
+  booking_id: z.string().uuid(),
+  dispute_type: z.enum([
+    DisputeType.PAYMENT,
+    DisputeType.SERVICE_QUALITY,
+    DisputeType.CANCELLATION,
+    DisputeType.OTHER,
+  ]),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+});
+
+export const updateDisputeSchema = z.object({
+  status: z.enum([
+    DisputeStatus.OPEN,
+    DisputeStatus.INVESTIGATING,
+    DisputeStatus.RESOLVED,
+    DisputeStatus.CLOSED,
+  ]).optional(),
+  priority: z.enum([
+    DisputePriority.LOW,
+    DisputePriority.MEDIUM,
+    DisputePriority.HIGH,
+    DisputePriority.URGENT,
+  ]).optional(),
+  admin_notes: z.string().optional(),
+  resolution: z.string().optional(),
+});
+
+export type Dispute = z.infer<typeof disputeSchema>;
+export type CreateDispute = z.infer<typeof createDisputeSchema>;
+export type UpdateDispute = z.infer<typeof updateDisputeSchema>;
+
+export type DisputeWithDetails = Dispute & {
+  booking?: Booking;
+  reported_by?: Driver | Client;
+  resolved_by_user?: AdminUser;
+};

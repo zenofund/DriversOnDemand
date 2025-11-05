@@ -792,6 +792,444 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all drivers (admin)
+  app.get("/api/admin/drivers", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { data: drivers, error } = await supabase
+        .from('drivers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to fetch drivers" });
+      }
+
+      res.json(drivers || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get all clients (admin)
+  app.get("/api/admin/clients", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { data: clients, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to fetch clients" });
+      }
+
+      res.json(clients || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Update driver status (admin)
+  app.patch("/api/admin/drivers/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      const updates = req.body;
+
+      const { data, error } = await supabase
+        .from('drivers')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to update driver" });
+      }
+
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get all bookings (admin)
+  app.get("/api/admin/bookings", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          driver:drivers(id, full_name, email, phone),
+          client:clients(id, full_name, email, phone)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to fetch bookings" });
+      }
+
+      res.json(bookings || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get all transactions (admin)
+  app.get("/api/admin/transactions", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { data: transactions, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          driver:drivers(id, full_name, email),
+          booking:bookings(id, start_location, destination)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to fetch transactions" });
+      }
+
+      res.json(transactions || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get all disputes (admin)
+  app.get("/api/admin/disputes", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { data: disputes, error } = await supabase
+        .from('disputes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to fetch disputes" });
+      }
+
+      res.json(disputes || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Update dispute (admin)
+  app.patch("/api/admin/disputes/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      const updates = {
+        ...req.body,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If marking as resolved, add resolved info
+      if (updates.status === 'resolved' || updates.status === 'closed') {
+        updates.resolved_by = user.id;
+        updates.resolved_at = new Date().toISOString();
+      }
+
+      const { data, error } = await supabase
+        .from('disputes')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to update dispute" });
+      }
+
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Create dispute (users)
+  app.post("/api/disputes", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { booking_id, dispute_type, description } = req.body;
+
+      // Determine user role
+      let userRole: 'driver' | 'client' | null = null;
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (driver) {
+        userRole = 'driver';
+      } else if (client) {
+        userRole = 'client';
+      }
+
+      if (!userRole) {
+        return res.status(403).json({ error: "Only drivers or clients can create disputes" });
+      }
+
+      // Verify booking exists and user is participant
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('client_id, driver_id')
+        .eq('id', booking_id)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const isParticipant = 
+        (client && booking.client_id === client.id) ||
+        (driver && booking.driver_id === driver.id);
+
+      if (!isParticipant) {
+        return res.status(403).json({ error: "You can only create disputes for your own bookings" });
+      }
+
+      // Create dispute
+      const { data: newDispute, error } = await supabase
+        .from('disputes')
+        .insert([{
+          booking_id,
+          reported_by_user_id: user.id,
+          reported_by_role: userRole,
+          dispute_type,
+          description,
+          status: 'open',
+          priority: 'medium',
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to create dispute" });
+      }
+
+      res.json(newDispute);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get user's disputes
+  app.get("/api/disputes", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: disputes, error } = await supabase
+        .from('disputes')
+        .select('*')
+        .eq('reported_by_user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to fetch disputes" });
+      }
+
+      res.json(disputes || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // ============================================================================
   // PAYSTACK WEBHOOK
   // ============================================================================

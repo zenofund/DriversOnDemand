@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
-import { Users, Car, DollarSign, TrendingUp } from 'lucide-react';
+import { Users, Car, DollarSign, TrendingUp, AlertCircle, CreditCard, ArrowRight } from 'lucide-react';
 import type { DashboardStats } from '@shared/schema';
 
 export default function AdminDashboard() {
@@ -137,6 +138,63 @@ export default function AdminDashboard() {
               />
             </div>
 
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="hover-elevate cursor-pointer transition-all" asChild>
+                <Link href="/admin/users">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-base font-medium">User Management</CardTitle>
+                    <Users className="h-5 w-5 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Manage drivers and clients, verify accounts, and monitor user activity
+                    </p>
+                    <Button variant="ghost" size="sm" className="w-full">
+                      Manage Users
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Link>
+              </Card>
+
+              <Card className="hover-elevate cursor-pointer transition-all" asChild>
+                <Link href="/admin/bookings">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-base font-medium">Bookings</CardTitle>
+                    <Car className="h-5 w-5 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Monitor all bookings, track status, and oversee platform operations
+                    </p>
+                    <Button variant="ghost" size="sm" className="w-full">
+                      View Bookings
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Link>
+              </Card>
+
+              <Card className="hover-elevate cursor-pointer transition-all" asChild>
+                <Link href="/admin/transactions">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-base font-medium">Transactions</CardTitle>
+                    <CreditCard className="h-5 w-5 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Track all platform transactions, revenue, and commission splits
+                    </p>
+                    <Button variant="ghost" size="sm" className="w-full">
+                      View Transactions
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Link>
+              </Card>
+            </div>
+
             {/* Additional Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
@@ -161,26 +219,22 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Platform Health</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Online Drivers</span>
-                      <span className="text-2xl font-bold text-status-online">
-                        {stats?.active_drivers || 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Avg Response Time</span>
-                      <span className="text-2xl font-bold">
-                        2.5min
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
+              <Card className="hover-elevate cursor-pointer transition-all" asChild>
+                <Link href="/admin/disputes">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Dispute Resolution</CardTitle>
+                    <AlertCircle className="h-5 w-5 text-status-warning" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      View and resolve user disputes to maintain platform quality
+                    </p>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Manage Disputes
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Link>
               </Card>
             </div>
 

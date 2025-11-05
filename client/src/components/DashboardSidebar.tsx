@@ -13,6 +13,8 @@ import {
   Users,
   Car,
   BarChart3,
+  AlertCircle,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { Driver } from '@shared/schema';
@@ -52,11 +54,11 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
     // Admin
     return [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
-      { icon: Users, label: 'Drivers', path: '/admin/drivers' },
-      { icon: Users, label: 'Clients', path: '/admin/clients' },
+      { icon: Users, label: 'Users', path: '/admin/users' },
       { icon: Car, label: 'Bookings', path: '/admin/bookings' },
-      { icon: DollarSign, label: 'Transactions', path: '/admin/transactions' },
-      { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
+      { icon: CreditCard, label: 'Transactions', path: '/admin/transactions' },
+      { icon: AlertCircle, label: 'Disputes', path: '/admin/disputes' },
+      { icon: Settings, label: 'Settings', path: '/admin/settings' },
     ];
   };
 

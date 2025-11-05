@@ -25,6 +25,11 @@ import ActiveBooking from "@/pages/client/ActiveBooking";
 import ClientChat from "@/pages/client/Chat";
 import ClientSettings from "@/pages/client/Settings";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminUsers from "@/pages/admin/Users";
+import AdminBookings from "@/pages/admin/Bookings";
+import AdminTransactions from "@/pages/admin/Transactions";
+import AdminDisputes from "@/pages/admin/Disputes";
+import AdminSettings from "@/pages/admin/Settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -46,6 +51,11 @@ function Router() {
       <Route path="/client/chat/:id" component={ClientChat} />
       <Route path="/client/settings" component={ClientSettings} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
+      <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/bookings" component={AdminBookings} />
+      <Route path="/admin/transactions" component={AdminTransactions} />
+      <Route path="/admin/disputes" component={AdminDisputes} />
+      <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
     </Switch>
   );
