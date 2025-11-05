@@ -19,6 +19,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import type { Driver } from '@shared/schema';
 import { ThemeToggle } from './ThemeToggle';
+import { Logo } from './Logo';
 
 interface DashboardSidebarProps {
   role: 'driver' | 'client' | 'admin';
@@ -53,14 +54,23 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
     }
 
     // Admin
-    return [
+    const baseAdminItems = [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
+      { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
       { icon: Users, label: 'Users', path: '/admin/users' },
       { icon: Car, label: 'Bookings', path: '/admin/bookings' },
       { icon: CreditCard, label: 'Transactions', path: '/admin/transactions' },
       { icon: AlertCircle, label: 'Disputes', path: '/admin/disputes' },
       { icon: Settings, label: 'Settings', path: '/admin/settings' },
     ];
+
+    // Add Admin Management for super admins only
+    const adminProfile = profile as any;
+    if (adminProfile?.role === 'super_admin') {
+      baseAdminItems.splice(6, 0, { icon: Users, label: 'Admin Management', path: '/admin/admins' });
+    }
+
+    return baseAdminItems;
   };
 
   const menuItems = getMenuItems();
@@ -80,6 +90,13 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
 
   return (
     <div className="h-screen w-64 bg-sidebar border-r flex flex-col">
+      {/* Logo Section */}
+      <div className="p-6 border-b border-sidebar-border">
+        <Link href={role === 'admin' ? '/admin/dashboard' : role === 'driver' ? '/driver/dashboard' : '/client/dashboard'}>
+          <Logo size="sm" />
+        </Link>
+      </div>
+
       {/* Profile Section */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3 mb-4">

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
-import { BadgeCheck } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -98,11 +98,8 @@ export default function Login() {
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold font-heading mb-2">
-            <div className="h-10 w-10 rounded-md bg-primary flex items-center justify-center">
-              <BadgeCheck className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <span>Drivers On Demand</span>
+          <Link href="/" className="inline-flex items-center mb-2">
+            <Logo size="lg" />
           </Link>
         </div>
 
