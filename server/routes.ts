@@ -2748,6 +2748,427 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===========================================================================
+  // ADMIN ANALYTICS ENDPOINTS
+  // ===========================================================================
+
+  // Get revenue analytics
+  app.get("/api/admin/analytics/revenue", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      // Get last 30 days of revenue data
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select('created_at, total_cost, booking_status')
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .eq('booking_status', 'completed')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      // Aggregate by date
+      const revenueByDate = (bookings || []).reduce((acc: any, booking: any) => {
+        const date = new Date(booking.created_at).toISOString().split('T')[0];
+        if (!acc[date]) {
+          acc[date] = { date, revenue: 0, bookings: 0, commission: 0 };
+        }
+        acc[date].revenue += booking.total_cost;
+        acc[date].bookings += 1;
+        acc[date].commission += booking.total_cost * 0.1; // 10% commission
+        return acc;
+      }, {});
+
+      res.json(Object.values(revenueByDate));
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get driver performance metrics
+  app.get("/api/admin/analytics/drivers", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      // Get driver metrics
+      const { data: drivers, error } = await supabase
+        .from('drivers')
+        .select('id, full_name, total_trips, rating')
+        .gte('total_trips', 1)
+        .order('total_trips', { ascending: false });
+
+      if (error) throw error;
+
+      // Calculate earnings and acceptance rate for each driver
+      const driverMetrics = await Promise.all((drivers || []).map(async (driver: any) => {
+        // Get completed bookings for earnings
+        const { data: completedBookings } = await supabase
+          .from('bookings')
+          .select('total_cost')
+          .eq('driver_id', driver.id)
+          .eq('booking_status', 'completed');
+
+        const totalEarnings = (completedBookings || []).reduce((sum: number, b: any) => 
+          sum + (b.total_cost * 0.9), 0); // Driver gets 90%
+
+        // Get acceptance rate
+        const { data: allBookings } = await supabase
+          .from('bookings')
+          .select('booking_status')
+          .eq('driver_id', driver.id);
+
+        const totalRequests = (allBookings || []).length;
+        const accepted = (allBookings || []).filter((b: any) => 
+          b.booking_status !== 'cancelled').length;
+        const acceptanceRate = totalRequests > 0 ? (accepted / totalRequests) * 100 : 0;
+
+        return {
+          driver_id: driver.id,
+          driver_name: driver.full_name,
+          total_trips: driver.total_trips,
+          total_earnings: Math.round(totalEarnings),
+          average_rating: driver.rating || 0,
+          acceptance_rate: Math.round(acceptanceRate),
+        };
+      }));
+
+      res.json(driverMetrics.sort((a, b) => b.total_trips - a.total_trips));
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get booking heatmap data
+  app.get("/api/admin/analytics/heatmap", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      // Get bookings from last 30 days
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select('created_at')
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+      if (error) throw error;
+
+      // Create heatmap data
+      const heatmapData: any[] = [];
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+      (bookings || []).forEach((booking: any) => {
+        const date = new Date(booking.created_at);
+        const day = days[date.getDay()];
+        const hour = date.getHours();
+
+        const existing = heatmapData.find(h => h.day === day && h.hour === hour);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          heatmapData.push({ day, hour, count: 1 });
+        }
+      });
+
+      res.json(heatmapData);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get location analytics
+  app.get("/api/admin/analytics/locations", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      // Get all bookings
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select('start_location, destination');
+
+      if (error) throw error;
+
+      // Count location frequency
+      const locationCounts: Record<string, number> = {};
+
+      (bookings || []).forEach((booking: any) => {
+        // Count start locations
+        if (booking.start_location) {
+          locationCounts[booking.start_location] = (locationCounts[booking.start_location] || 0) + 1;
+        }
+        // Count destinations
+        if (booking.destination) {
+          locationCounts[booking.destination] = (locationCounts[booking.destination] || 0) + 1;
+        }
+      });
+
+      // Convert to array and sort
+      const locationData = Object.entries(locationCounts)
+        .map(([location, count]) => ({ location, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20); // Top 20 locations
+
+      res.json(locationData);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ===========================================================================
+  // ADMIN USER MANAGEMENT ENDPOINTS
+  // ===========================================================================
+
+  // Get all admin users (super admin only)
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify super admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin || admin.role !== 'super_admin') {
+        return res.status(403).json({ error: "Super admin access required" });
+      }
+
+      // Get all admin users
+      const { data: adminUsers, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      res.json(adminUsers || []);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Create new admin user (super admin only)
+  app.post("/api/admin/users", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify super admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin || admin.role !== 'super_admin') {
+        return res.status(403).json({ error: "Super admin access required" });
+      }
+
+      const { email, password, name, role } = req.body;
+
+      if (!email || !password || !name || !role) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      if (!['super_admin', 'moderator'].includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+
+      // Create auth user
+      const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        user_metadata: {
+          role: 'admin',
+          name,
+        },
+        email_confirm: true,
+      });
+
+      if (authError) throw authError;
+
+      if (!newUser.user) {
+        throw new Error('User creation failed');
+      }
+
+      // Create admin user record
+      const { data: newAdmin, error: adminError } = await supabase
+        .from('admin_users')
+        .insert({
+          user_id: newUser.user.id,
+          name,
+          email,
+          role,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (adminError) throw adminError;
+
+      res.json(newAdmin);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Server error" });
+    }
+  });
+
+  // Update admin user status (super admin only)
+  app.patch("/api/admin/users/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify super admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin || admin.role !== 'super_admin') {
+        return res.status(403).json({ error: "Super admin access required" });
+      }
+
+      const adminId = req.params.id;
+      const { is_active, role } = req.body;
+
+      const updates: any = {};
+      if (typeof is_active !== 'undefined') updates.is_active = is_active;
+      if (role && ['super_admin', 'moderator'].includes(role)) updates.role = role;
+
+      const { data: updatedAdmin, error } = await supabase
+        .from('admin_users')
+        .update(updates)
+        .eq('id', adminId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json(updatedAdmin);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

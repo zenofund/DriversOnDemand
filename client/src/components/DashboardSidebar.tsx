@@ -54,14 +54,23 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
     }
 
     // Admin
-    return [
+    const baseAdminItems = [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
+      { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
       { icon: Users, label: 'Users', path: '/admin/users' },
       { icon: Car, label: 'Bookings', path: '/admin/bookings' },
       { icon: CreditCard, label: 'Transactions', path: '/admin/transactions' },
       { icon: AlertCircle, label: 'Disputes', path: '/admin/disputes' },
       { icon: Settings, label: 'Settings', path: '/admin/settings' },
     ];
+
+    // Add Admin Management for super admins only
+    const adminProfile = profile as any;
+    if (adminProfile?.role === 'super_admin') {
+      baseAdminItems.splice(6, 0, { icon: Users, label: 'Admin Management', path: '/admin/admins' });
+    }
+
+    return baseAdminItems;
   };
 
   const menuItems = getMenuItems();
