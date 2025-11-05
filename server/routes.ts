@@ -439,6 +439,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update client profile
+  app.patch("/api/clients/profile", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const allowedUpdates: any = {};
+      const { full_name, phone, profile_picture_url } = req.body;
+
+      if (full_name !== undefined) allowedUpdates.full_name = full_name;
+      if (phone !== undefined) allowedUpdates.phone = phone;
+      if (profile_picture_url !== undefined) allowedUpdates.profile_picture_url = profile_picture_url;
+
+      if (Object.keys(allowedUpdates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      const { data, error } = await supabase
+        .from('clients')
+        .update(allowedUpdates)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to update profile" });
+      }
+
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // ============================================================================
   // BOOKING ENDPOINTS
   // ============================================================================

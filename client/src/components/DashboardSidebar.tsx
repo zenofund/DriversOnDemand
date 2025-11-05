@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -82,7 +82,11 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
       {/* Profile Section */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3 mb-4">
-          <Avatar className="h-12 w-12">
+          <Avatar className="h-12 w-12 border-2 border-primary/10">
+            <AvatarImage 
+              src={profile?.profile_picture_url || undefined} 
+              alt={getProfileName()} 
+            />
             <AvatarFallback className="bg-primary/10 text-primary font-semibold">
               {getProfileInitials()}
             </AvatarFallback>

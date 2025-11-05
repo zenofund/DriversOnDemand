@@ -61,6 +61,7 @@ export const driverSchema = z.object({
   }).nullable(),
   rating: z.number().min(0).max(5),
   total_trips: z.number().int().min(0),
+  profile_picture_url: z.string().nullable(),
   created_at: z.string(),
 });
 
@@ -100,6 +101,7 @@ export const clientSchema = z.object({
   email: z.string().email(),
   phone: z.string(),
   verified: z.boolean(),
+  profile_picture_url: z.string().nullable(),
   created_at: z.string(),
 });
 

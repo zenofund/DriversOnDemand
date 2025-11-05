@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -222,8 +223,19 @@ export default function AdminUsers() {
                           <TableBody>
                             {filteredDrivers.map((driver) => (
                               <TableRow key={driver.id}>
-                                <TableCell className="font-medium">
-                                  {driver.full_name}
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-10 w-10 border-2 border-primary/10">
+                                      <AvatarImage 
+                                        src={driver.profile_picture_url || undefined} 
+                                        alt={driver.full_name}
+                                      />
+                                      <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                                        {driver.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-medium">{driver.full_name}</span>
+                                  </div>
                                 </TableCell>
                                 <TableCell>{driver.email}</TableCell>
                                 <TableCell>{driver.phone}</TableCell>
@@ -304,8 +316,19 @@ export default function AdminUsers() {
                           <TableBody>
                             {filteredClients.map((client) => (
                               <TableRow key={client.id}>
-                                <TableCell className="font-medium">
-                                  {client.full_name}
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-10 w-10 border-2 border-primary/10">
+                                      <AvatarImage 
+                                        src={client.profile_picture_url || undefined} 
+                                        alt={client.full_name}
+                                      />
+                                      <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                                        {client.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-medium">{client.full_name}</span>
+                                  </div>
                                 </TableCell>
                                 <TableCell>{client.email}</TableCell>
                                 <TableCell>{client.phone}</TableCell>

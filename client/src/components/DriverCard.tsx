@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Star, MapPin } from 'lucide-react';
 import type { Driver } from '@shared/schema';
 
@@ -17,7 +17,11 @@ export function DriverCard({ driver, distance, onSelect }: DriverCardProps) {
         <div className="flex items-center gap-4">
           {/* Avatar with online indicator */}
           <div className="relative">
-            <Avatar className="h-16 w-16">
+            <Avatar className="h-16 w-16 border-2 border-primary/10">
+              <AvatarImage 
+                src={driver.profile_picture_url || undefined} 
+                alt={driver.full_name}
+              />
               <AvatarFallback className="text-lg font-semibold bg-primary/10 text-primary">
                 {driver.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </AvatarFallback>
