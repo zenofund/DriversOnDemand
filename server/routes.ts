@@ -666,6 +666,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single booking
+  app.get("/api/bookings/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+
+      const { data: booking, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          driver:drivers(id, full_name, phone, profile_picture_url),
+          client:clients(id, full_name, phone, profile_picture_url)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Verify user is participant
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      const isParticipant = 
+        (client && booking.client_id === client.id) ||
+        (driver && booking.driver_id === driver.id);
+
+      if (!isParticipant) {
+        return res.status(403).json({ error: "Not authorized to view this booking" });
+      }
+
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Create booking
   app.post("/api/bookings", async (req, res) => {
     try {

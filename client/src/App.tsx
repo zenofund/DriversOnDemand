@@ -16,6 +16,7 @@ import DriverDashboard from "@/pages/driver/DriverDashboard";
 import DriverVerification from "@/pages/driver/Verification";
 import DriverSettings from "@/pages/driver/Settings";
 import ActiveBookings from "@/pages/driver/ActiveBookings";
+import DriverChat from "@/pages/driver/Chat";
 import Earnings from "@/pages/driver/Earnings";
 import History from "@/pages/driver/History";
 import ClientDashboard from "@/pages/client/ClientDashboard";
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/driver/verification" component={DriverVerification} />
       <Route path="/driver/dashboard" component={DriverDashboard} />
       <Route path="/driver/bookings" component={ActiveBookings} />
+      <Route path="/driver/chat/:id" component={DriverChat} />
       <Route path="/driver/earnings" component={Earnings} />
       <Route path="/driver/history" component={History} />
       <Route path="/driver/settings" component={DriverSettings} />
