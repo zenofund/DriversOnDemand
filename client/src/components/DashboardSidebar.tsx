@@ -36,6 +36,7 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
       return [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/driver/dashboard' },
         { icon: Car, label: 'Active Bookings', path: '/driver/bookings' },
+        { icon: BarChart3, label: 'My Reviews', path: '/driver/reviews' },
         { icon: DollarSign, label: 'Earnings', path: '/driver/earnings' },
         { icon: History, label: 'History', path: '/driver/history' },
         { icon: Settings, label: 'Settings', path: '/driver/settings' },

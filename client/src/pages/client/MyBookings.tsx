@@ -253,9 +253,10 @@ export default function MyBookings() {
           {/* Rating Dialog */}
           {selectedBookingForRating && (
             <RatingDialog
+              open={!!selectedBookingForRating}
+              onOpenChange={(open) => !open && setSelectedBookingForRating(null)}
               bookingId={selectedBookingForRating.id}
               driverName={selectedBookingForRating.driver.full_name}
-              onClose={() => setSelectedBookingForRating(null)}
             />
           )}
         </div>
