@@ -144,7 +144,7 @@ export default function Landing() {
               </div>
               <h3 className="text-base sm:text-lg font-semibold mb-2">Instant Payouts</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Earn 90% of your rates. Automatic payouts to your bank account after each completed trip.
+                Earn 80% of your rates. Automatic payouts to your bank account after each completed trip.
               </p>
             </Card>
 
