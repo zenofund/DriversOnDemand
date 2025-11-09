@@ -85,7 +85,7 @@ export default function History() {
       <DashboardSidebar role="driver" onLogout={handleLogout} />
 
       <main className="flex-1 overflow-y-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-6 md:p-8">
           <div className="max-w-5xl mx-auto space-y-6">
             {/* Header */}
             <div>

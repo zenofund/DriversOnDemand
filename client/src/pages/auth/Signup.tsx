@@ -102,20 +102,20 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <Link href="/">
             <a className="inline-flex items-center mb-2">
-              <Logo size="lg" />
+              <Logo size="md" className="sm:h-12" />
             </a>
           </Link>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Create Account</CardTitle>
-            <CardDescription>
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl sm:text-2xl">Create Account</CardTitle>
+            <CardDescription className="text-sm">
               {formData.role === 'driver' 
                 ? 'Start earning as a verified driver'
                 : 'Book professional drivers on demand'
@@ -123,7 +123,7 @@ export default function Signup() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="role">Account Type</Label>
                 <Select 
@@ -210,7 +210,7 @@ export default function Signup() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center text-sm">
+            <div className="mt-4 sm:mt-6 text-center text-sm">
               <p className="text-muted-foreground">
                 Already have an account?{' '}
                 <Link href="/auth/login">

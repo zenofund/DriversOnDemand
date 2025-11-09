@@ -95,21 +95,21 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <Link href="/" className="inline-flex items-center mb-2">
-            <Logo size="lg" />
+            <Logo size="md" className="sm:h-12" />
           </Link>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Welcome Back</CardTitle>
-            <CardDescription>Sign in to your account to continue</CardDescription>
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl sm:text-2xl">Welcome Back</CardTitle>
+            <CardDescription className="text-sm">Sign in to your account to continue</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -145,7 +145,7 @@ export default function Login() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center text-sm">
+            <div className="mt-4 sm:mt-6 text-center text-sm">
               <p className="text-muted-foreground">
                 Don't have an account?{' '}
                 <Link href="/auth/signup" className="text-primary font-medium hover:underline" data-testid="link-signup">

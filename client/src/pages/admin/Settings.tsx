@@ -100,7 +100,7 @@ export default function AdminSettings() {
       <DashboardSidebar role="admin" onLogout={handleLogout} />
 
       <main className="flex-1 overflow-y-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-6 md:p-8">
           <div className="max-w-4xl mx-auto space-y-8">
             {/* Header */}
             <div>
