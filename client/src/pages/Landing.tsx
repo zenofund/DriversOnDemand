@@ -175,7 +175,7 @@ export default function Landing() {
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
             <p className="text-[10px] text-muted-foreground">
-              &copy; {new Date().getFullYear()} Drivers On Demand. All rights reserved.
+              &copy; {new Date().getFullYear()} Draba. All rights reserved.
             </p>
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
               <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>

@@ -1,7 +1,7 @@
 # Admin Analytics & Setup Documentation
 
 ## Overview
-This document covers the comprehensive analytics dashboard and admin account management system for the Drivers On Demand platform.
+This document covers the comprehensive analytics dashboard and admin account management system for the Draba platform.
 
 ---
 

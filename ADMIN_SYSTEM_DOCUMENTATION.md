@@ -1,7 +1,7 @@
 # Admin System Documentation
 
 ## Overview
-A comprehensive administrative oversight system has been fully implemented for the Drivers On Demand platform. This system provides administrators with complete control over platform operations, user management, analytics, and dispute resolution.
+A comprehensive administrative oversight system has been fully implemented for the Draba platform. This system provides administrators with complete control over platform operations, user management, analytics, and dispute resolution.
 
 ## Features Implemented
 

@@ -1,6 +1,6 @@
 # OneSignal Push Notifications Setup Guide
 
-This guide explains how to set up OneSignal for push notifications in the Drivers On Demand platform.
+This guide explains how to set up OneSignal for push notifications in the Draba platform.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This guide explains how to set up OneSignal for push notifications in the Driver
 
 1. Log in to OneSignal dashboard
 2. Click "New App/Website"
-3. Enter app name: "Drivers On Demand"
+3. Enter app name: "Draba"
 4. Select "Web Push" as the platform
 
 ## Step 2: Configure Web Push

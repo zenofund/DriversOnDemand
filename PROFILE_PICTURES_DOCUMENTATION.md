@@ -1,7 +1,7 @@
 # Profile Pictures Feature Documentation
 
 ## Overview
-A comprehensive profile picture system has been implemented for both drivers and clients in the Drivers On Demand platform. Users can upload profile pictures with built-in cropping functionality for clear identification.
+A comprehensive profile picture system has been implemented for both drivers and clients in the Draba platform. Users can upload profile pictures with built-in cropping functionality for clear identification.
 
 ## Features Implemented
 

@@ -1,7 +1,7 @@
-# Drivers On Demand
+# Draba
 
 ## Overview
-Drivers On Demand is a production-ready, full-stack platform designed to connect clients with verified professional drivers in real-time. It features role-based dashboards for drivers, clients, and administrators, offering real-time updates, secure payment processing, and location-based driver search. The project aims to provide a seamless and efficient booking experience, leveraging modern web technologies to ensure scalability and reliability.
+Draba is a production-ready, full-stack platform designed to connect clients with verified professional drivers in real-time. It features role-based dashboards for drivers, clients, and administrators, offering real-time updates, secure payment processing, and location-based driver search. The project aims to provide a seamless and efficient booking experience, leveraging modern web technologies to ensure scalability and reliability.
 
 ## User Preferences
 I prefer clear, concise explanations and an iterative development approach. Please ask before implementing major changes or making significant architectural decisions. I value detailed explanations when new features or complex logic are introduced. I also want to make sure the agent does not make changes to the existing folder structure unless explicitly asked.

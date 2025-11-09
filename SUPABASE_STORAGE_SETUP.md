@@ -1,7 +1,7 @@
 # Supabase Storage Setup for Profile Pictures
 
 ## Overview
-This guide explains how to set up the Supabase Storage bucket for profile pictures in the Drivers On Demand platform.
+This guide explains how to set up the Supabase Storage bucket for profile pictures in the Draba platform.
 
 ## Setup Steps
 
