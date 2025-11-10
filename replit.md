@@ -13,6 +13,8 @@ The platform utilizes React with Vite for a fast Single Page Application experie
 
 **Dark Mode:** Full dark mode support with ThemeProvider and localStorage persistence. Theme toggle available in public header and all dashboard sidebars. No flash on load using useLayoutEffect to apply theme before first paint.
 
+**Mobile-First Design:** Progressive responsive padding (p-4 sm:p-6 md:p-8) across all pages. Dashboard sidebar uses Shadcn sidebar primitives with automatic mobile responsiveness - hidden on mobile (< 1024px) with hamburger menu toggle, persistent on desktop (≥ 1024px). DashboardLayout component provides unified responsive structure for all role-based dashboards.
+
 ### Technical Implementations
 The frontend uses TypeScript for type safety, React Query for server state management with optimized caching, Zustand for global client state, Wouter for routing, and Lucide React for icons. The backend is powered by Supabase, providing a PostgreSQL database with real-time subscriptions and built-in authentication. Express.js serves as the API server, integrating with the Paystack API for payment processing, including split payments. Google Maps API is used for location services, driver tracking, and route optimization, including distance matrix calculations and geofencing.
 

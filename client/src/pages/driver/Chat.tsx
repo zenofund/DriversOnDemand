@@ -242,7 +242,7 @@ export default function DriverChat() {
                     {isOwnMessage && (
                       <Avatar className="h-8 w-8 flex-shrink-0">
                         <AvatarImage 
-                          src={profile?.profile_picture_url || undefined}
+                          src={'profile_picture_url' in (profile || {}) ? profile.profile_picture_url || undefined : undefined}
                           alt="You"
                         />
                         <AvatarFallback className="text-xs bg-primary text-primary-foreground">
