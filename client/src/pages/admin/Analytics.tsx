@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/store/authStore';
@@ -91,11 +91,8 @@ export default function Analytics() {
   ];
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar role="admin" onLogout={handleLogout} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 md:p-8">
+    <DashboardLayout role="admin" onLogout={handleLogout}>
+      <div className="p-4 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div>
@@ -487,7 +484,6 @@ export default function Analytics() {
             </Tabs>
           </div>
         </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 }

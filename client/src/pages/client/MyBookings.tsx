@@ -11,7 +11,7 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import { Calendar, MapPin, DollarSign, User, Clock, MessageCircle } from 'lucide-react';
 import { RatingDialog } from '@/components/RatingDialog';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 
 interface Booking {
   id: string;
@@ -93,13 +93,8 @@ export default function MyBookings() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <DashboardSidebar role="client" onLogout={handleLogout} />
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto p-6">
+    <DashboardLayout role="client" onLogout={handleLogout}>
+      <div className="container mx-auto p-6">
           <h1 className="text-3xl font-bold mb-6" data-testid="text-page-title">My Bookings</h1>
 
           {isLoading && (
@@ -260,7 +255,6 @@ export default function MyBookings() {
             />
           )}
         </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 }

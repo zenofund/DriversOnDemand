@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
@@ -33,11 +33,8 @@ export default function DriverReviewsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar role="driver" onLogout={handleLogout} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 md:p-8">
+    <DashboardLayout role="driver" onLogout={handleLogout}>
+      <div className="p-4 sm:p-6 md:p-8">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Header */}
             <div>
@@ -58,7 +55,6 @@ export default function DriverReviewsPage() {
             />
           </div>
         </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 }

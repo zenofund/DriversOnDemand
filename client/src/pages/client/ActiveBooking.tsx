@@ -11,7 +11,7 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { MapPin, Clock, DollarSign, User, Phone, Star, MessageCircle, CheckCircle } from 'lucide-react';
 import type { BookingWithDetails } from '@shared/schema';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 
 function ActiveBooking() {
   const [, setLocation] = useLocation();
@@ -125,11 +125,8 @@ function ActiveBooking() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar role="client" onLogout={handleLogout} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto p-6">
+    <DashboardLayout role="client" onLogout={handleLogout}>
+      <div className="container mx-auto p-6">
           <h1 className="text-3xl font-bold mb-6" data-testid="text-page-title">Active Booking</h1>
 
           {isLoading && (
@@ -347,8 +344,7 @@ function ActiveBooking() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 }
 

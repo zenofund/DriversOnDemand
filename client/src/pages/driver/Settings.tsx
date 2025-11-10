@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -303,14 +303,11 @@ export default function Settings() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar 
-        role="driver" 
-        onLogout={handleLogout}
-      />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 md:p-8">
+    <DashboardLayout 
+      role="driver" 
+      onLogout={handleLogout}
+    >
+      <div className="p-4 sm:p-6 md:p-8">
           <div className="max-w-3xl mx-auto space-y-8">
             {/* Header */}
             <div>
@@ -606,7 +603,6 @@ export default function Settings() {
             </Card>
           </div>
         </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 }

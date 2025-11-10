@@ -4,6 +4,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from '@/components/ui/sidebar';
+import {
   LayoutDashboard,
   MapPin,
   History,
@@ -89,74 +98,78 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
   };
 
   return (
-    <div className="h-screen w-64 bg-sidebar border-r flex flex-col">
+    <Sidebar collapsible="icon">
       {/* Logo Section */}
-      <div className="p-6 border-b border-sidebar-border">
+      <SidebarHeader className="p-6 border-b border-sidebar-border">
         <Link href={role === 'admin' ? '/admin/dashboard' : role === 'driver' ? '/driver/dashboard' : '/client/dashboard'}>
           <Logo size="sm" />
         </Link>
-      </div>
+      </SidebarHeader>
 
-      {/* Profile Section */}
-      <div className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3 mb-4">
-          <Avatar className="h-12 w-12 border-2 border-primary/10">
-            <AvatarImage 
-              src={profile?.profile_picture_url || undefined} 
-              alt={getProfileName()} 
-            />
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-              {getProfileInitials()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sidebar-foreground truncate">
-              {getProfileName()}
-            </p>
-            <p className="text-xs text-muted-foreground capitalize">{role}</p>
+      <SidebarContent>
+        {/* Profile Section */}
+        <div className="p-6 border-b border-sidebar-border group-data-[collapsible=icon]:p-2">
+          <div className="flex items-center gap-3 mb-4">
+            <Avatar className="h-12 w-12 border-2 border-primary/10 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
+              <AvatarImage 
+                src={profile?.profile_picture_url || undefined} 
+                alt={getProfileName()} 
+              />
+              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                {getProfileInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
+              <p className="font-semibold text-sidebar-foreground truncate">
+                {getProfileName()}
+              </p>
+              <p className="text-xs text-muted-foreground capitalize">{role}</p>
+            </div>
           </div>
+
+          {/* Driver Online/Offline Toggle */}
+          {role === 'driver' && onToggleOnline && (
+            <div className="flex items-center justify-between p-3 rounded-md bg-sidebar-accent group-data-[collapsible=icon]:hidden">
+              <Label htmlFor="online-toggle" className="text-sm font-medium cursor-pointer">
+                {isOnline ? 'Online' : 'Offline'}
+              </Label>
+              <Switch
+                id="online-toggle"
+                checked={isOnline}
+                onCheckedChange={onToggleOnline}
+                data-testid="toggle-online-status"
+              />
+            </div>
+          )}
         </div>
 
-        {/* Driver Online/Offline Toggle */}
-        {role === 'driver' && onToggleOnline && (
-          <div className="flex items-center justify-between p-3 rounded-md bg-sidebar-accent">
-            <Label htmlFor="online-toggle" className="text-sm font-medium cursor-pointer">
-              {isOnline ? 'Online' : 'Offline'}
-            </Label>
-            <Switch
-              id="online-toggle"
-              checked={isOnline}
-              onCheckedChange={onToggleOnline}
-              data-testid="toggle-online-status"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => {
-          const isActive = location === item.path;
-          return (
-            <Button
-              key={item.path}
-              variant={isActive ? 'secondary' : 'ghost'}
-              className="w-full justify-start gap-3"
-              data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-              asChild
-            >
-              <Link href={item.path}>
-                <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </Link>
-            </Button>
-          );
-        })}
-      </nav>
+        {/* Navigation */}
+        <div className="p-4 space-y-1">
+          <SidebarMenu>
+            {menuItems.map((item) => {
+              const isActive = location === item.path;
+              return (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton 
+                    asChild
+                    isActive={isActive}
+                    data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <Link href={item.path}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </div>
+      </SidebarContent>
 
       {/* Logout & Theme */}
-      <div className="p-4 border-t border-sidebar-border space-y-2">
-        <div className="flex items-center justify-between mb-2">
+      <SidebarFooter className="p-4 border-t border-sidebar-border space-y-2">
+        <div className="flex items-center justify-between mb-2 group-data-[collapsible=icon]:hidden">
           <span className="text-sm text-muted-foreground">Theme</span>
           <ThemeToggle />
         </div>
@@ -167,9 +180,9 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
           data-testid="button-logout"
         >
           <LogOut className="h-4 w-4" />
-          <span>Logout</span>
+          <span className="group-data-[collapsible=icon]:hidden">Logout</span>
         </Button>
-      </div>
-    </div>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

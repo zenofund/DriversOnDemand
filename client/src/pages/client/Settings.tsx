@@ -12,7 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { User, Lock } from 'lucide-react';
 import { insertClientSchema, type Client } from '@shared/schema';
 import { z } from 'zod';
@@ -144,11 +144,8 @@ export default function ClientSettings() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar role="client" onLogout={handleLogout} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto p-6 max-w-4xl">
+    <DashboardLayout role="client" onLogout={handleLogout}>
+      <div className="container mx-auto p-6 max-w-4xl">
           <h1 className="text-3xl font-bold mb-6" data-testid="text-page-title">Settings</h1>
 
           <div className="space-y-6">
@@ -345,7 +342,6 @@ export default function ClientSettings() {
             </Card>
           </div>
         </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
@@ -139,11 +139,8 @@ export default function AdminDisputes() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar role="admin" onLogout={handleLogout} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 md:p-8">
+    <DashboardLayout role="admin" onLogout={handleLogout}>
+      <div className="p-4 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div>
@@ -316,7 +313,6 @@ export default function AdminDisputes() {
             </Card>
           </div>
         </div>
-      </main>
 
       {/* Dispute Management Dialog */}
       <Dialog open={!!selectedDispute} onOpenChange={(open) => !open && setSelectedDispute(null)}>
@@ -407,6 +403,6 @@ export default function AdminDisputes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </DashboardLayout>
   );
 }

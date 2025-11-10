@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useLocation, useSearch } from 'wouter';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -404,17 +404,14 @@ export default function DriverDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar 
-        role="driver" 
-        onLogout={handleLogout}
-        onToggleOnline={handleToggleOnline}
-        isOnline={isOnline}
-      />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 md:p-8">
-          <div className="max-w-7xl mx-auto space-y-8">
+    <DashboardLayout 
+      role="driver" 
+      onLogout={handleLogout}
+      onToggleOnline={handleToggleOnline}
+      isOnline={isOnline}
+    >
+      <div className="p-4 sm:p-6 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div>
               <div className="flex items-center gap-3">
@@ -563,9 +560,8 @@ export default function DriverDashboard() {
                 </CardContent>
               </Card>
             )}
-          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

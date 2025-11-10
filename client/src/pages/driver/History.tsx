@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -81,11 +81,8 @@ export default function History() {
   const cancelledCount = bookings.filter(b => b.booking_status === 'cancelled').length;
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar role="driver" onLogout={handleLogout} />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 md:p-8">
+    <DashboardLayout role="driver" onLogout={handleLogout}>
+      <div className="p-4 sm:p-6 md:p-8">
           <div className="max-w-5xl mx-auto space-y-6">
             {/* Header */}
             <div>
@@ -233,7 +230,6 @@ export default function History() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+    </DashboardLayout>
   );
 }

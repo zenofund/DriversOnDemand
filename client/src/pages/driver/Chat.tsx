@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { Send, ArrowLeft, MessageCircle } from 'lucide-react';
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import type { Message } from '@shared/schema';
 
 interface ChatMessage extends Message {
@@ -136,10 +136,8 @@ export default function DriverChat() {
   const clientName = booking?.client?.full_name || 'Client';
 
   return (
-    <div className="flex h-screen bg-background">
-      <DashboardSidebar role="driver" onLogout={handleLogout} />
-
-      <main className="flex-1 flex flex-col overflow-hidden">
+    <DashboardLayout role="driver" onLogout={handleLogout}>
+      <div className="flex flex-col h-full overflow-hidden">
         {/* Header */}
         <div className="border-b bg-card p-4">
           <div className="flex items-center gap-4">
@@ -300,7 +298,7 @@ export default function DriverChat() {
             </Button>
           </form>
         </div>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
