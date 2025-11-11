@@ -129,8 +129,8 @@ export default function BookingConfirm() {
         throw new Error('Missing booking data');
       }
 
-      // Create booking
-      const bookingResponse = await apiRequest('POST', '/api/bookings', {
+      // Create pending booking
+      const pendingBookingResponse = await apiRequest('POST', '/api/bookings', {
         driver_id: selectedDriverId,
         start_location: pickupLocation,
         destination: destination,
@@ -141,11 +141,11 @@ export default function BookingConfirm() {
         total_cost: calculatedCost,
       });
 
-      const booking = await bookingResponse.json();
+      const pendingBooking = await pendingBookingResponse.json();
 
-      // Initialize payment
+      // Initialize payment with pending booking ID
       const paymentResponse = await apiRequest('POST', '/api/payments/initialize-booking', {
-        bookingId: booking.id,
+        pending_booking_id: pendingBooking.id,
       });
 
       return paymentResponse.json();

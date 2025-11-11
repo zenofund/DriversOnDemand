@@ -724,7 +724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create booking
+  // Create pending booking
   app.post("/api/bookings", async (req, res) => {
     try {
       const authHeader = req.headers.authorization;
@@ -750,27 +750,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Client not found" });
       }
 
-      const bookingData = {
+      // Create pending booking instead of actual booking
+      // This prevents bookings from being created before payment succeeds
+      const pendingBookingData = {
         ...req.body,
         client_id: client.id,
-        payment_status: 'pending',
-        booking_status: 'pending',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour expiry
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       };
 
       const { data, error } = await supabase
-        .from('bookings')
-        .insert([bookingData])
+        .from('pending_bookings')
+        .insert([pendingBookingData])
         .select()
         .single();
 
       if (error) {
-        return res.status(500).json({ error: "Failed to create booking" });
+        console.error('Failed to create pending booking:', error);
+        return res.status(500).json({ error: "Failed to create pending booking" });
       }
 
+      console.log('Pending booking created:', data.id);
       res.json(data);
     } catch (error) {
+      console.error('Server error in create pending booking:', error);
       res.status(500).json({ error: "Server error" });
     }
   });
@@ -1398,29 +1401,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Handle booking payment
         if (metadata?.type === 'booking') {
-          console.log('Processing booking payment for booking:', metadata.booking_id);
+          console.log('Processing booking payment for pending_booking:', metadata.pending_booking_id);
           
-          const { error: bookingError } = await supabase
+          const { pending_booking_id } = metadata;
+
+          if (!pending_booking_id) {
+            console.error('Missing pending_booking_id in webhook metadata');
+            return res.sendStatus(200); // Still return 200 to Paystack
+          }
+
+          // Fetch the pending booking
+          const { data: pendingBooking, error: fetchError } = await supabase
+            .from('pending_bookings')
+            .select('*')
+            .eq('id', pending_booking_id)
+            .single();
+
+          if (fetchError || !pendingBooking) {
+            console.error('Pending booking not found:', pending_booking_id, fetchError);
+            return res.sendStatus(200); // Still return 200 to Paystack to prevent retries
+          }
+
+          // Check if pending booking has expired
+          if (new Date(pendingBooking.expires_at) < new Date()) {
+            console.error('Pending booking expired:', pending_booking_id);
+            return res.sendStatus(200); // Still return 200 to Paystack
+          }
+
+          // Check idempotency - see if transaction already exists for this payment reference
+          // This prevents duplicate bookings if Paystack webhook is called multiple times
+          const { data: existingTransaction } = await supabase
+            .from('transactions')
+            .select('id, booking_id')
+            .eq('paystack_ref', reference)
+            .maybeSingle();
+
+          if (existingTransaction) {
+            console.log('Transaction already processed for this payment reference, skipping:', reference);
+            // Clean up pending booking
+            await supabase.from('pending_bookings').delete().eq('id', pending_booking_id);
+            return res.sendStatus(200);
+          }
+
+          // Create the actual booking from pending booking data
+          const { data: booking, error: bookingError } = await supabase
             .from('bookings')
-            .update({
+            .insert([{
+              client_id: pendingBooking.client_id,
+              driver_id: pendingBooking.driver_id,
+              start_location: pendingBooking.start_location,
+              destination: pendingBooking.destination,
+              start_coordinates: pendingBooking.start_coordinates,
+              destination_coordinates: pendingBooking.destination_coordinates,
+              distance_km: pendingBooking.distance_km,
+              duration_hr: pendingBooking.duration_hr,
+              total_cost: pendingBooking.total_cost,
               payment_status: 'paid',
+              booking_status: 'pending',
+              created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-            })
-            .eq('id', metadata.booking_id);
+            }])
+            .select()
+            .single();
 
           if (bookingError) {
-            console.error('Failed to update booking payment status:', bookingError);
+            console.error('Failed to create booking from pending booking:', bookingError);
             throw bookingError;
           }
 
+          console.log('Booking created successfully from pending booking:', booking.id);
+
           const bookingAmount = amount / 100;
           
-          // Create transaction record
+          // Create transaction record with the new booking_id
           // Mark as settled=false - will be settled when driver completes and confirms
           const { error: txError } = await supabase
             .from('transactions')
             .insert([{
-              booking_id: metadata.booking_id,
+              booking_id: booking.id,
               driver_id: metadata.driver_id,
               paystack_ref: reference,
               amount: bookingAmount,
@@ -1436,7 +1494,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw txError;
           }
 
-          console.log('Booking payment processed successfully');
+          // Delete the pending booking after successful booking creation
+          const { error: deleteError } = await supabase
+            .from('pending_bookings')
+            .delete()
+            .eq('id', pending_booking_id);
+
+          if (deleteError) {
+            console.error('Failed to delete pending booking:', deleteError);
+            // Don't throw - booking is already created, this is just cleanup
+          }
+
+          console.log('Booking payment processed successfully, pending booking cleaned up');
         }
       }
 
@@ -1530,30 +1599,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { bookingId } = req.body;
+      const { pending_booking_id } = req.body;
 
-      // Get booking details with driver info
-      const { data: booking, error: bookingError } = await supabase
-        .from('bookings')
+      if (!pending_booking_id) {
+        return res.status(400).json({ error: "Missing pending_booking_id" });
+      }
+
+      // Get pending booking details with driver and client info
+      const { data: pendingBooking, error: bookingError } = await supabase
+        .from('pending_bookings')
         .select(`
           *,
-          driver:drivers(id, email, paystack_subaccount_code),
+          driver:drivers(id, email),
           client:clients(id, email, user_id)
         `)
-        .eq('id', bookingId)
+        .eq('id', pending_booking_id)
         .single();
 
-      if (bookingError || !booking) {
-        return res.status(404).json({ error: "Booking not found" });
+      if (bookingError || !pendingBooking) {
+        console.error('Pending booking not found:', bookingError);
+        return res.status(404).json({ error: "Pending booking not found" });
       }
 
-      // Verify booking ownership - must belong to authenticated user
-      if (booking.client?.user_id !== user.id) {
-        return res.status(403).json({ error: "Unauthorized - not your booking" });
+      // Check if pending booking has expired
+      if (new Date(pendingBooking.expires_at) < new Date()) {
+        console.log('Pending booking expired:', pending_booking_id);
+        return res.status(400).json({ error: "Booking session expired. Please create a new booking." });
       }
 
-      // Use total_cost from booking record (server-side authority)
-      const bookingAmount = booking.total_cost;
+      // Verify pending booking ownership - must belong to authenticated user
+      if (pendingBooking.client?.user_id !== user.id) {
+        return res.status(403).json({ error: "Unauthorized - not your pending booking" });
+      }
+
+      // Use total_cost from pending booking record (server-side authority)
+      const bookingAmount = pendingBooking.total_cost;
 
       if (!bookingAmount || bookingAmount <= 0) {
         return res.status(400).json({ error: "Invalid booking amount" });
@@ -1566,12 +1646,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prepare payment request - simple charge, no split yet
       // Money stays in platform balance until completion is confirmed
       const paymentData: any = {
-        email: booking.client?.email,
+        email: pendingBooking.client?.email,
         amount: Math.round(bookingAmount * 100), // Convert to kobo
         metadata: {
           type: 'booking',
-          booking_id: bookingId,
-          driver_id: booking.driver_id,
+          pending_booking_id: pending_booking_id,
+          driver_id: pendingBooking.driver_id,
         },
         callback_url: fullCallbackUrl,
       };
@@ -1589,14 +1669,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
 
       if (!data.status) {
+        console.error('Paystack initialization failed:', data);
         return res.status(500).json({ error: "Failed to initialize payment" });
       }
 
+      console.log('Payment initialized for pending booking:', pending_booking_id);
       res.json({
         authorization_url: data.data.authorization_url,
         reference: data.data.reference,
       });
     } catch (error) {
+      console.error('Server error in payment initialization:', error);
       res.status(500).json({ error: "Server error" });
     }
   });
