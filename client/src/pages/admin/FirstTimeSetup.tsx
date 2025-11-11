@@ -24,17 +24,6 @@ export default function FirstTimeSetup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate setup key (you should set this as an environment variable)
-    const SETUP_KEY = import.meta.env.VITE_ADMIN_SETUP_KEY || 'drivers-on-demand-2024';
-    if (formData.setupKey !== SETUP_KEY) {
-      toast({
-        title: 'Invalid Setup Key',
-        description: 'Please provide the correct admin setup key',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: 'Passwords do not match',
@@ -56,36 +45,25 @@ export default function FirstTimeSetup() {
     setLoading(true);
 
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            role: 'admin',
-            name: formData.name,
-          },
+      // Call secure backend endpoint for admin setup
+      const response = await fetch('/api/admin/setup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          setupKey: formData.setupKey,
+        }),
       });
 
-      if (authError) throw authError;
+      const data = await response.json();
 
-      if (!authData.user) {
-        throw new Error('User creation failed');
+      if (!response.ok) {
+        throw new Error(data.error || 'Setup failed');
       }
-
-      // Create admin user record
-      const { error: adminError } = await supabase
-        .from('admin_users')
-        .insert({
-          user_id: authData.user.id,
-          name: formData.name,
-          email: formData.email,
-          role: 'super_admin',
-          is_active: true,
-        });
-
-      if (adminError) throw adminError;
 
       toast({
         title: 'Admin account created!',

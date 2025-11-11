@@ -295,6 +295,26 @@ CREATE POLICY "Clients can view booking transactions"
     )
   );
 
+-- Admin Users Policies
+CREATE POLICY "Allow trigger to insert admin users"
+  ON admin_users FOR INSERT
+  WITH CHECK (
+    auth.uid() = user_id
+  );
+
+CREATE POLICY "Admins can view their own profile"
+  ON admin_users FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Super admins can view all admins"
+  ON admin_users FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_users
+      WHERE user_id = auth.uid() AND role = 'super_admin' AND is_active = TRUE
+    )
+  );
+
 -- Admin Policies (Super admins can see everything)
 CREATE POLICY "Admins can view all drivers"
   ON drivers FOR ALL
@@ -439,11 +459,13 @@ BEGIN
       NEW.raw_user_meta_data->>'phone'
     );
   ELSIF NEW.raw_user_meta_data->>'role' = 'admin' THEN
-    INSERT INTO public.admin_users (user_id, name, email)
+    INSERT INTO public.admin_users (user_id, name, email, role, is_active)
     VALUES (
       NEW.id,
-      NEW.raw_user_meta_data->>'full_name',
-      NEW.email
+      NEW.raw_user_meta_data->>'name',
+      NEW.email,
+      'super_admin',
+      true
     );
   END IF;
   

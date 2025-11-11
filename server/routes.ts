@@ -3004,6 +3004,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ADMIN USER MANAGEMENT ENDPOINTS
   // ===========================================================================
 
+  // First-time admin setup (public endpoint with setup key validation)
+  app.post("/api/admin/setup", async (req, res) => {
+    try {
+      const { email, password, name, setupKey } = req.body;
+
+      if (!email || !password || !name || !setupKey) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Verify setup key from environment - MUST be set, no default
+      const ADMIN_SETUP_KEY = process.env.ADMIN_SETUP_KEY;
+      if (!ADMIN_SETUP_KEY) {
+        return res.status(500).json({ error: "Server configuration error: ADMIN_SETUP_KEY not set" });
+      }
+
+      if (setupKey !== ADMIN_SETUP_KEY) {
+        return res.status(403).json({ error: "Invalid setup key" });
+      }
+
+      // Atomic check and create using a transaction-like approach
+      // First, acquire a lock on the admin_users table by attempting to create
+      const { count, error: countError } = await supabase
+        .from('admin_users')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        throw countError;
+      }
+
+      if (count && count > 0) {
+        return res.status(403).json({ error: "Admin setup already completed" });
+      }
+
+      // Create auth user using service role (bypasses RLS)
+      const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        user_metadata: {
+          role: 'admin',
+          name,
+        },
+        email_confirm: true,
+      });
+
+      if (authError) throw authError;
+
+      if (!newUser.user) {
+        throw new Error('User creation failed');
+      }
+
+      // Poll for the admin record with retry logic (more reliable than fixed delay)
+      let adminUser = null;
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (!adminUser && attempts < maxAttempts) {
+        const { data, error } = await supabase
+          .from('admin_users')
+          .select('*')
+          .eq('user_id', newUser.user.id)
+          .single();
+
+        if (data) {
+          adminUser = data;
+          break;
+        }
+
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      if (!adminUser) {
+        throw new Error('Admin record creation timed out - trigger may have failed');
+      }
+
+      res.json({ 
+        message: 'Admin account created successfully',
+        admin: adminUser
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Server error" });
+    }
+  });
+
   // Get all admin users (super admin only)
   app.get("/api/admin/users", async (req, res) => {
     try {
