@@ -15,14 +15,16 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 
 function ActiveBooking() {
   const [, setLocation] = useLocation();
-  const { user } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
     }
-  }, [user, setLocation]);
+  }, [isLoading, user, setLocation]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -31,7 +33,7 @@ function ActiveBooking() {
   };
 
   // Fetch active bookings
-  const { data: activeBooking, isLoading } = useQuery<BookingWithDetails | null>({
+  const { data: activeBooking, isLoading: isLoadingBooking } = useQuery<BookingWithDetails | null>({
     queryKey: ['/api/bookings/client/active'],
     enabled: !!user,
     refetchInterval: 10000, // Poll every 10 seconds for updates

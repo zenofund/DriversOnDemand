@@ -17,7 +17,7 @@ const VERIFICATION_FEE = 5000; // ₦5,000
 
 export default function DriverVerification() {
   const [, setLocation] = useLocation();
-  const { user, profile, logout } = useAuthStore();
+  const { user, profile, isLoading, logout } = useAuthStore();
   const { toast } = useToast();
   const [step, setStep] = useState<'profile' | 'payment'>('profile');
   const [profileData, setProfileData] = useState({
@@ -28,12 +28,14 @@ export default function DriverVerification() {
   });
 
   // Fetch driver data
-  const { data: driverData, isLoading } = useQuery<Driver>({
+  const { data: driverData, isLoading: isLoadingDriver } = useQuery<Driver>({
     queryKey: ['/api/drivers/me'],
     enabled: !!user,
   });
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
       return;
@@ -63,7 +65,7 @@ export default function DriverVerification() {
         setStep('payment');
       }
     }
-  }, [user, driverData, setLocation]);
+  }, [isLoading, user, driverData, setLocation]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: any) => {

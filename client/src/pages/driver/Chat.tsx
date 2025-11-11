@@ -31,7 +31,7 @@ export default function DriverChat() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const bookingId = params.id;
-  const { user, profile } = useAuthStore();
+  const { user, profile, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -39,10 +39,12 @@ export default function DriverChat() {
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
     }
-  }, [user, setLocation]);
+  }, [isLoading, user, setLocation]);
 
   // Fetch booking details
   const { data: booking } = useQuery<BookingDetails>({
@@ -60,7 +62,7 @@ export default function DriverChat() {
   });
 
   // Fetch messages
-  const { data: messages = [], isLoading } = useQuery<ChatMessage[]>({
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery<ChatMessage[]>({
     queryKey: ['/api/messages', bookingId],
     enabled: !!bookingId,
     refetchOnWindowFocus: false,

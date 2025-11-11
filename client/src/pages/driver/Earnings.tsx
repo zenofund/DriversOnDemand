@@ -31,10 +31,12 @@ interface PayoutHistory {
 
 export default function Earnings() {
   const [, setLocation] = useLocation();
-  const { user, profile, logout } = useAuthStore();
+  const { user, profile, isLoading, logout } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
       return;
@@ -49,7 +51,7 @@ export default function Earnings() {
       setLocation('/driver/verification');
       return;
     }
-  }, [user, profile, setLocation, toast]);
+  }, [isLoading, user, profile, setLocation, toast]);
 
   const { data: pendingSettlementsData, isLoading: loadingPending } = useQuery<PendingSettlement[]>({
     queryKey: ['/api/payouts/pending'],

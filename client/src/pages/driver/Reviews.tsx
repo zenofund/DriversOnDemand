@@ -9,13 +9,15 @@ import type { Driver } from '@shared/schema';
 
 export default function DriverReviewsPage() {
   const [, setLocation] = useLocation();
-  const { user, profile } = useAuthStore();
+  const { user, profile, isLoading } = useAuthStore();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
     }
-  }, [user, setLocation]);
+  }, [isLoading, user, setLocation]);
 
   const { data: driver } = useQuery<Driver>({
     queryKey: ['/api/drivers/me'],

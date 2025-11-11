@@ -19,16 +19,18 @@ import { Search, DollarSign, TrendingUp, CreditCard, CheckCircle } from 'lucide-
 
 export default function AdminTransactions() {
   const [, setLocation] = useLocation();
-  const { user, role } = useAuthStore();
+  const { user, role, isLoading } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user || role !== 'admin') {
       setLocation('/auth/login');
     }
-  }, [user, role, setLocation]);
+  }, [isLoading, user, role, setLocation]);
 
-  const { data: transactions = [], isLoading } = useQuery<any[]>({
+  const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery<any[]>({
     queryKey: ['/api/admin/transactions'],
     enabled: !!user && role === 'admin',
   });

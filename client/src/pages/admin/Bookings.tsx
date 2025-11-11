@@ -21,16 +21,18 @@ import type { BookingWithDetails } from '@shared/schema';
 
 export default function AdminBookings() {
   const [, setLocation] = useLocation();
-  const { user, role } = useAuthStore();
+  const { user, role, isLoading } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user || role !== 'admin') {
       setLocation('/auth/login');
     }
-  }, [user, role, setLocation]);
+  }, [isLoading, user, role, setLocation]);
 
-  const { data: bookings = [], isLoading } = useQuery<any[]>({
+  const { data: bookings = [], isLoading: isLoadingBookings } = useQuery<any[]>({
     queryKey: ['/api/admin/bookings'],
     enabled: !!user && role === 'admin',
   });

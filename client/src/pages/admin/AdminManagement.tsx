@@ -18,7 +18,7 @@ import type { AdminUser } from '@shared/schema';
 
 export default function AdminManagement() {
   const [, setLocation] = useLocation();
-  const { user, role, profile } = useAuthStore();
+  const { user, role, profile, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,6 +29,8 @@ export default function AdminManagement() {
   });
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user || role !== 'admin') {
       setLocation('/auth/login');
       return;
@@ -44,7 +46,7 @@ export default function AdminManagement() {
       });
       setLocation('/admin/dashboard');
     }
-  }, [user, role, profile, setLocation, toast]);
+  }, [isLoading, user, role, profile, setLocation, toast]);
 
   const { data: adminUsers = [] } = useQuery<AdminUser[]>({
     queryKey: ['/api/admin/users'],

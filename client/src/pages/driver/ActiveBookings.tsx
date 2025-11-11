@@ -35,10 +35,12 @@ interface Booking {
 
 export default function ActiveBookings() {
   const [, setLocation] = useLocation();
-  const { user, profile, logout } = useAuthStore();
+  const { user, profile, isLoading, logout } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
       return;
@@ -53,9 +55,9 @@ export default function ActiveBookings() {
       setLocation('/driver/verification');
       return;
     }
-  }, [user, profile, setLocation, toast]);
+  }, [isLoading, user, profile, setLocation, toast]);
 
-  const { data: bookings = [], isLoading } = useQuery<Booking[]>({
+  const { data: bookings = [], isLoading: isLoadingBookings } = useQuery<Booking[]>({
     queryKey: ['/api/bookings/active'],
   });
 

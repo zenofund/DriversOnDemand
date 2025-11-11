@@ -43,15 +43,17 @@ const statusColors: Record<string, string> = {
 
 export default function MyBookings() {
   const [, setLocation] = useLocation();
-  const { user } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [selectedBookingForRating, setSelectedBookingForRating] = useState<Booking | null>(null);
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
     }
-  }, [user, setLocation]);
+  }, [isLoading, user, setLocation]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -60,7 +62,7 @@ export default function MyBookings() {
   };
 
   // Fetch client's bookings
-  const { data: bookings, isLoading } = useQuery<Booking[]>({
+  const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
     queryKey: ['/api/bookings/client'],
     enabled: !!user,
   });

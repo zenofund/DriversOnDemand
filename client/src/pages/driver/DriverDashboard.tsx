@@ -18,7 +18,7 @@ export default function DriverDashboard() {
   const [, setLocation] = useLocation();
   const searchParams = new URLSearchParams(useSearch());
   const paymentSuccess = searchParams.get('payment_success') === 'true';
-  const { user, profile, logout } = useAuthStore();
+  const { user, profile, isLoading, logout } = useAuthStore();
   const { toast } = useToast();
   const [isOnline, setIsOnline] = useState(false);
   const [isWaitingForVerification, setIsWaitingForVerification] = useState(paymentSuccess);
@@ -29,6 +29,9 @@ export default function DriverDashboard() {
   const { coordinates, error: geoError, getCurrentPosition } = useGeolocation();
 
   useEffect(() => {
+    // Wait for auth state to load before redirecting
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
       return;
@@ -54,7 +57,7 @@ export default function DriverDashboard() {
 
       setIsOnline(driver.online_status === 'online');
     }
-  }, [user, profile, setLocation, toast, isWaitingForVerification]);
+  }, [isLoading, user, profile, setLocation, toast, isWaitingForVerification]);
 
   const { data: driverData, refetch: refetchDriverData } = useQuery<Driver>({
     queryKey: ['/api/drivers/me'],

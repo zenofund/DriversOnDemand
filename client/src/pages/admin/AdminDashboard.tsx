@@ -13,13 +13,15 @@ import type { DashboardStats } from '@shared/schema';
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
-  const { user, role } = useAuthStore();
+  const { user, role, isLoading } = useAuthStore();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user || role !== 'admin') {
       setLocation('/auth/login');
     }
-  }, [user, role, setLocation]);
+  }, [isLoading, user, role, setLocation]);
 
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/admin/stats'],

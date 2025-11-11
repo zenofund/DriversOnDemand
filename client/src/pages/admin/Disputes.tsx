@@ -39,7 +39,7 @@ import type { Dispute } from '@shared/schema';
 
 export default function AdminDisputes() {
   const [, setLocation] = useLocation();
-  const { user, role } = useAuthStore();
+  const { user, role, isLoading } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
   const [resolution, setResolution] = useState('');
@@ -49,12 +49,14 @@ export default function AdminDisputes() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user || role !== 'admin') {
       setLocation('/auth/login');
     }
-  }, [user, role, setLocation]);
+  }, [isLoading, user, role, setLocation]);
 
-  const { data: disputes = [], isLoading } = useQuery<Dispute[]>({
+  const { data: disputes = [], isLoading: isLoadingDisputes } = useQuery<Dispute[]>({
     queryKey: ['/api/admin/disputes'],
     enabled: !!user && role === 'admin',
   });

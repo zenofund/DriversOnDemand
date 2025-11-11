@@ -18,7 +18,7 @@ import type { Driver } from '@shared/schema';
 
 export default function ClientDashboard() {
   const [, setLocation] = useLocation();
-  const { user } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
   const { toast } = useToast();
   const {
     pickupLocation,
@@ -33,12 +33,14 @@ export default function ClientDashboard() {
   const [showDrivers, setShowDrivers] = useState(false);
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
     }
-  }, [user, setLocation]);
+  }, [isLoading, user, setLocation]);
 
-  const { data: nearbyDrivers = [], isLoading } = useQuery<Driver[]>({
+  const { data: nearbyDrivers = [], isLoading: isLoadingDrivers } = useQuery<Driver[]>({
     queryKey: ['/api/drivers/nearby'],
     enabled: showDrivers && !!searchQuery,
     refetchOnWindowFocus: false,

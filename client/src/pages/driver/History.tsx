@@ -28,10 +28,12 @@ interface Booking {
 
 export default function History() {
   const [, setLocation] = useLocation();
-  const { user, profile, logout } = useAuthStore();
+  const { user, profile, isLoading, logout } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
       return;
@@ -46,9 +48,9 @@ export default function History() {
       setLocation('/driver/verification');
       return;
     }
-  }, [user, profile, setLocation, toast]);
+  }, [isLoading, user, profile, setLocation, toast]);
 
-  const { data: bookings = [], isLoading } = useQuery<Booking[]>({
+  const { data: bookings = [], isLoading: isLoadingHistory } = useQuery<Booking[]>({
     queryKey: ['/api/bookings/history'],
   });
 

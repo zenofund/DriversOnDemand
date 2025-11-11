@@ -19,19 +19,21 @@ export default function Chat() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const bookingId = params.id;
-  const { user, profile } = useAuthStore();
+  const { user, profile, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
     }
-  }, [user, setLocation]);
+  }, [isLoading, user, setLocation]);
 
   // Fetch messages
-  const { data: messages = [], isLoading } = useQuery<ChatMessage[]>({
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery<ChatMessage[]>({
     queryKey: ['/api/messages', bookingId],
     enabled: !!bookingId,
     refetchOnWindowFocus: false,

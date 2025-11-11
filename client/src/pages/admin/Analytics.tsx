@@ -42,13 +42,15 @@ interface LocationData {
 
 export default function Analytics() {
   const [, setLocation] = useLocation();
-  const { user, role } = useAuthStore();
+  const { user, role, isLoading } = useAuthStore();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user || role !== 'admin') {
       setLocation('/auth/login');
     }
-  }, [user, role, setLocation]);
+  }, [isLoading, user, role, setLocation]);
 
   const { data: revenueData = [] } = useQuery<RevenueData[]>({
     queryKey: ['/api/admin/analytics/revenue'],

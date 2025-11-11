@@ -31,7 +31,7 @@ interface Bank {
 
 export default function Settings() {
   const [, setLocation] = useLocation();
-  const { user, profile, logout } = useAuthStore();
+  const { user, profile, isLoading, logout } = useAuthStore();
   const { toast } = useToast();
 
   const [profileForm, setProfileForm] = useState({
@@ -56,6 +56,8 @@ export default function Settings() {
   const { coordinates, loading: geoLoading, error: geoError, getCurrentPosition } = useGeolocation();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
       return;
@@ -88,7 +90,7 @@ export default function Settings() {
         setVerifiedAccountName(driver.account_name || '');
       }
     }
-  }, [user, profile, setLocation, toast]);
+  }, [isLoading, user, profile, setLocation, toast]);
 
   const { data: banks = [] } = useQuery<Bank[]>({
     queryKey: ['/api/banks'],

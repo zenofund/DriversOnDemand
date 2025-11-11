@@ -34,14 +34,16 @@ type PasswordChange = z.infer<typeof passwordChangeSchema>;
 
 export default function ClientSettings() {
   const [, setLocation] = useLocation();
-  const { user } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
   const { toast } = useToast();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user) {
       setLocation('/auth/login');
     }
-  }, [user, setLocation]);
+  }, [isLoading, user, setLocation]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -49,7 +51,7 @@ export default function ClientSettings() {
     setLocation('/auth/login');
   };
 
-  const { data: clientData, isLoading } = useQuery<Client>({
+  const { data: clientData, isLoading: isLoadingClient } = useQuery<Client>({
     queryKey: ['/api/clients/me'],
     enabled: !!user,
   });

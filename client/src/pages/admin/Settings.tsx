@@ -14,15 +14,17 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminSettings() {
   const [, setLocation] = useLocation();
-  const { user, role } = useAuthStore();
+  const { user, role, isLoading } = useAuthStore();
   const [commissionPercentage, setCommissionPercentage] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
+    if (isLoading) return;
+    
     if (!user || role !== 'admin') {
       setLocation('/auth/login');
     }
-  }, [user, role, setLocation]);
+  }, [isLoading, user, role, setLocation]);
 
   const { data: settings = [] } = useQuery<any[]>({
     queryKey: ['/api/admin/settings'],

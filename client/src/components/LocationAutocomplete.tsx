@@ -65,6 +65,7 @@ export function LocationAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const ignoreNextChange = useRef(false);
 
   useEffect(() => {
     getGoogleMapsLoader()
@@ -88,19 +89,50 @@ export function LocationAutocomplete({
     // Initialize autocomplete
     autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
       componentRestrictions: { country: 'ng' }, // Restrict to Nigeria
-      fields: ['formatted_address', 'geometry', 'place_id'],
+      fields: ['name', 'formatted_address', 'address_components', 'geometry', 'place_id'],
     });
 
     // Handle place selection
     const listener = autocompleteRef.current.addListener('place_changed', () => {
       const place = autocompleteRef.current?.getPlace();
       
-      if (place?.formatted_address && place?.geometry?.location) {
-        const address = place.formatted_address;
+      if (place?.geometry?.location) {
+        // Build human-readable address from components
+        let humanReadableAddress = '';
+        
+        // Use the place name if available (e.g., "Kagini Primary Health Center")
+        if (place.name) {
+          humanReadableAddress = place.name;
+        }
+        
+        // Add city (locality)
+        const city = place.address_components?.find(
+          comp => comp.types.includes('locality') || comp.types.includes('administrative_area_level_2')
+        )?.long_name;
+        
+        if (city) {
+          humanReadableAddress += humanReadableAddress ? `, ${city}` : city;
+        }
+        
+        // Add country
+        const country = place.address_components?.find(
+          comp => comp.types.includes('country')
+        )?.long_name;
+        
+        if (country) {
+          humanReadableAddress += humanReadableAddress ? `, ${country}` : country;
+        }
+        
+        // Fallback to formatted_address if we couldn't build a good one
+        const finalAddress = humanReadableAddress || place.formatted_address || '';
+        
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
         
-        onChange(address, { lat, lng });
+        // Set flag to ignore the next onChange event from the input
+        ignoreNextChange.current = true;
+        
+        onChange(finalAddress, { lat, lng });
       }
     });
 
@@ -111,12 +143,22 @@ export function LocationAutocomplete({
     };
   }, [isLoaded, onChange]);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Skip onChange if this was triggered by autocomplete selection
+    if (ignoreNextChange.current) {
+      ignoreNextChange.current = false;
+      return;
+    }
+    // Only update with manual input (no coordinates)
+    onChange(e.target.value, { lat: 0, lng: 0 });
+  };
+
   return (
     <Input
       ref={inputRef}
       id={id}
       value={value}
-      onChange={(e) => onChange(e.target.value, { lat: 0, lng: 0 })}
+      onChange={handleInputChange}
       placeholder={placeholder}
       className={className}
       data-testid={testId}
