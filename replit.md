@@ -44,6 +44,28 @@ The platform includes comprehensive features such as:
 - **Input Validation:** Multi-layer validation using Zod schemas on both frontend and backend, with field whitelisting on profile updates to prevent unauthorized field modifications.
 - **Bank Account Security:** Bank account updates require Paystack verification (PATCH /api/drivers/bank-account) - drivers cannot inject bank details through the profile endpoint, ensuring all payout accounts are verified before accepting payments.
 
+## Recent Changes (November 11, 2025)
+
+### Critical Bug Fixes Implemented:
+1. **Payment-Before-Booking Fix:** Implemented pending_bookings staging table to ensure bookings are only created AFTER successful Paystack payment confirmation via webhook. Uses unique paystack_ref for idempotency protection.
+
+2. **Driver Proximity Filtering:** Updated GET /api/drivers/nearby endpoint to filter drivers within 20km radius using Haversine formula based on client's pickup location coordinates.
+
+3. **Driver Rejection Endpoint:** Added POST /api/bookings/:id/reject endpoint with proper validation. Drivers can reject pending bookings with comprehensive ownership and status checks. Note: Refund handling currently requires manual admin follow-up.
+
+4. **Contact Privacy Protection:** Hidden driver phone numbers on pre-payment pages (BookingConfirm). Contact details only visible to clients after payment_status='paid' on ActiveBooking page.
+
+### Pending Enhancements:
+1. **Automated Refund System:** Implement Paystack refund API integration and add refund_status tracking (refunds table or transaction field) to handle driver rejections of paid bookings automatically.
+
+2. **Auto-Complete After 12 Hours:** Implement scheduled task to auto-complete bookings when one party confirms but the other doesn't respond within 12 hours. Requires:
+   - Add first_confirmed_at field to bookings table
+   - Hourly cron job to query stalled bookings
+   - Auto-set both confirmations and process payout
+   - Audit logging and notifications
+
+3. **Pending Bookings Cleanup:** Schedule cleanup_expired_pending_bookings() function (pg_cron or server cron) to automatically remove expired pending_bookings (>1 hour old).
+
 ## External Dependencies
 - **Supabase:** Database, Authentication, and Realtime functionalities.
 - **Paystack:** Payment gateway for processing all financial transactions, including driver verification, client payments, and split payouts.
