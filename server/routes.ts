@@ -386,20 +386,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Search nearby drivers
   app.get("/api/drivers/nearby", async (req, res) => {
     try {
-      // Get online drivers
+      const { lat, lng } = req.query;
+
+      // Validate coordinates
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "Latitude and longitude are required" });
+      }
+
+      const clientLat = parseFloat(lat as string);
+      const clientLng = parseFloat(lng as string);
+
+      if (isNaN(clientLat) || isNaN(clientLng)) {
+        return res.status(400).json({ error: "Invalid coordinates" });
+      }
+
+      // Get online and verified drivers
       const { data, error } = await supabase
         .from('drivers')
         .select('*')
         .eq('online_status', 'online')
-        .eq('verified', true)
-        .limit(10);
+        .eq('verified', true);
 
       if (error) {
         return res.status(500).json({ error: "Failed to fetch drivers" });
       }
 
-      res.json(data || []);
+      // Filter drivers within 20km using Haversine formula
+      const MAX_DISTANCE_KM = 20;
+      const nearbyDrivers = (data || []).filter(driver => {
+        if (!driver.current_location || 
+            driver.current_location.lat == null || 
+            driver.current_location.lng == null) {
+          return false; // Skip drivers without location
+        }
+
+        const driverLat = driver.current_location.lat;
+        const driverLng = driver.current_location.lng;
+
+        // Haversine formula to calculate distance
+        const R = 6371; // Earth's radius in km
+        const dLat = (driverLat - clientLat) * Math.PI / 180;
+        const dLng = (driverLng - clientLng) * Math.PI / 180;
+        const a = 
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(clientLat * Math.PI / 180) * Math.cos(driverLat * Math.PI / 180) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
+
+        // Add distance to driver object for sorting
+        driver.distance_km = Math.round(distance * 10) / 10; // Round to 1 decimal
+
+        return distance <= MAX_DISTANCE_KM;
+      });
+
+      // Sort by distance (closest first) and limit to 10
+      const sortedDrivers = nearbyDrivers
+        .sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0))
+        .slice(0, 10);
+
+      res.json(sortedDrivers);
     } catch (error) {
+      console.error('Error in nearby drivers endpoint:', error);
       res.status(500).json({ error: "Server error" });
     }
   });

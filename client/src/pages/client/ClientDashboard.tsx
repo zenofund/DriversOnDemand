@@ -41,14 +41,16 @@ export default function ClientDashboard() {
   }, [isLoading, user, setLocation]);
 
   const { data: nearbyDrivers = [], isLoading: isLoadingDrivers } = useQuery<Driver[]>({
-    queryKey: ['/api/drivers/nearby'],
-    enabled: showDrivers && !!searchQuery,
+    queryKey: pickupCoords 
+      ? [`/api/drivers/nearby?lat=${pickupCoords.lat}&lng=${pickupCoords.lng}`]
+      : ['/api/drivers/nearby'],
+    enabled: showDrivers && !!searchQuery && !!pickupCoords,
     refetchOnWindowFocus: false,
   });
 
   // Subscribe to driver status changes
   useEffect(() => {
-    if (!showDrivers) return;
+    if (!showDrivers || !pickupCoords) return;
 
     const channel = supabase
       .channel('driver-status-changes')
@@ -61,7 +63,13 @@ export default function ClientDashboard() {
         },
         () => {
           // Refetch nearby drivers when any driver's status changes (online/offline)
-          queryClient.invalidateQueries({ queryKey: ['/api/drivers/nearby'] });
+          // Use predicate to invalidate queries starting with /api/drivers/nearby
+          queryClient.invalidateQueries({ 
+            predicate: (query) => {
+              const key = query.queryKey[0];
+              return typeof key === 'string' && key.startsWith('/api/drivers/nearby');
+            }
+          });
         }
       )
       .subscribe();
@@ -69,7 +77,7 @@ export default function ClientDashboard() {
     return () => {
       channel.unsubscribe();
     };
-  }, [showDrivers]);
+  }, [showDrivers, pickupCoords]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
