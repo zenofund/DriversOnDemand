@@ -234,7 +234,7 @@ export default function AdminBookings() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <StatusBadge status={booking.booking_status} />
+                              <StatusBadge status={booking.booking_status} type="booking" />
                             </TableCell>
                           </TableRow>
                         ))}
