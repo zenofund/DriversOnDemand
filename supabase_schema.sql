@@ -90,8 +90,14 @@ CREATE TABLE IF NOT EXISTS admin_users (
   role TEXT CHECK (role IN ('super_admin', 'moderator')) DEFAULT 'moderator',
   is_active BOOLEAN DEFAULT TRUE,
   last_login TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  is_first_admin BOOLEAN DEFAULT FALSE
 );
+
+-- Create unique partial index to ensure only one first admin can exist
+CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_first_admin 
+  ON admin_users (is_first_admin) 
+  WHERE is_first_admin = TRUE;
 
 -- Ratings Table
 CREATE TABLE IF NOT EXISTS ratings (
@@ -439,6 +445,8 @@ CREATE POLICY "Only super admins can update platform settings"
 -- Function to create driver/client profile after signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  is_first_admin BOOLEAN;
 BEGIN
   -- Check user role from metadata
   IF NEW.raw_user_meta_data->>'role' = 'driver' THEN
@@ -459,13 +467,18 @@ BEGIN
       NEW.raw_user_meta_data->>'phone'
     );
   ELSIF NEW.raw_user_meta_data->>'role' = 'admin' THEN
-    INSERT INTO public.admin_users (user_id, name, email, role, is_active)
+    -- Check if this is the first admin (atomic check due to unique index)
+    SELECT NOT EXISTS (SELECT 1 FROM public.admin_users LIMIT 1) INTO is_first_admin;
+    
+    -- Insert admin user - the unique index will prevent race conditions
+    INSERT INTO public.admin_users (user_id, name, email, role, is_active, is_first_admin)
     VALUES (
       NEW.id,
       NEW.raw_user_meta_data->>'name',
       NEW.email,
       'super_admin',
-      true
+      true,
+      is_first_admin
     );
   END IF;
   
