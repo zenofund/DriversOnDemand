@@ -236,15 +236,14 @@ export default function BookingConfirm() {
                   <h3 className="font-semibold text-lg" data-testid="text-driver-name">{driver.full_name}</h3>
                   <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      <span data-testid="text-driver-phone">{driver.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
                       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                       <span data-testid="text-driver-rating">{driver.rating.toFixed(1)}</span>
                     </div>
                     <span data-testid="text-driver-trips">{driver.total_trips} trips</span>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Contact details will be available after payment confirmation
+                  </p>
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-muted-foreground">Hourly Rate</div>

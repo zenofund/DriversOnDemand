@@ -215,10 +215,16 @@ function ActiveBooking() {
                         {activeBooking.driver?.full_name || 'Driver'}
                       </h3>
                       <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          <span data-testid="text-driver-phone">{activeBooking.driver?.phone}</span>
-                        </div>
+                        {activeBooking.payment_status === 'paid' ? (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            <span data-testid="text-driver-phone">{activeBooking.driver?.phone}</span>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">
+                            Contact details available after payment confirmation
+                          </div>
+                        )}
                         <div className="flex items-center gap-1">
                           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                           <span data-testid="text-driver-rating">
