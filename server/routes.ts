@@ -21,6 +21,9 @@ import { verifyBankAccount, updateDriverBankDetails, getNigerianBanks } from './
 // Completion payout service
 import { processCompletionPayout } from './services/completionPayoutService';
 
+// Payment finalization service
+import { finalizeBookingFromPayment } from './services/paymentFinalizationService';
+
 // Server should use service role key for full database access
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -1579,113 +1582,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Handle booking payment
+        // Handle booking payment using shared finalization service
         if (metadata?.type === 'booking') {
-          console.log('Processing booking payment for pending_booking:', metadata.pending_booking_id);
-          
-          const { pending_booking_id } = metadata;
-
-          if (!pending_booking_id) {
-            console.error('Missing pending_booking_id in webhook metadata');
-            return res.sendStatus(200); // Still return 200 to Paystack
-          }
-
-          // Fetch the pending booking
-          const { data: pendingBooking, error: fetchError } = await supabase
-            .from('pending_bookings')
-            .select('*')
-            .eq('id', pending_booking_id)
-            .single();
-
-          if (fetchError || !pendingBooking) {
-            console.error('Pending booking not found:', pending_booking_id, fetchError);
-            return res.sendStatus(200); // Still return 200 to Paystack to prevent retries
-          }
-
-          // Check if pending booking has expired
-          if (new Date(pendingBooking.expires_at) < new Date()) {
-            console.error('Pending booking expired:', pending_booking_id);
-            return res.sendStatus(200); // Still return 200 to Paystack
-          }
-
-          // Check idempotency - see if transaction already exists for this payment reference
-          // This prevents duplicate bookings if Paystack webhook is called multiple times
-          const { data: existingTransaction } = await supabase
-            .from('transactions')
-            .select('id, booking_id')
-            .eq('paystack_ref', reference)
-            .maybeSingle();
-
-          if (existingTransaction) {
-            console.log('Transaction already processed for this payment reference, skipping:', reference);
-            // Clean up pending booking
-            await supabase.from('pending_bookings').delete().eq('id', pending_booking_id);
-            return res.sendStatus(200);
-          }
-
-          // Create the actual booking from pending booking data
-          const { data: booking, error: bookingError } = await supabase
-            .from('bookings')
-            .insert([{
-              client_id: pendingBooking.client_id,
-              driver_id: pendingBooking.driver_id,
-              start_location: pendingBooking.start_location,
-              destination: pendingBooking.destination,
-              start_coordinates: pendingBooking.start_coordinates,
-              destination_coordinates: pendingBooking.destination_coordinates,
-              distance_km: pendingBooking.distance_km,
-              duration_hr: pendingBooking.duration_hr,
-              total_cost: pendingBooking.total_cost,
-              payment_status: 'paid',
-              booking_status: 'pending',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }])
-            .select()
-            .single();
-
-          if (bookingError) {
-            console.error('Failed to create booking from pending booking:', bookingError);
-            throw bookingError;
-          }
-
-          console.log('Booking created successfully from pending booking:', booking.id);
-
           const bookingAmount = amount / 100;
+          const result = await finalizeBookingFromPayment(reference, metadata, bookingAmount);
           
-          // Create transaction record with the new booking_id
-          // Mark as settled=false - will be settled when driver completes and confirms
-          const { error: txError } = await supabase
-            .from('transactions')
-            .insert([{
-              booking_id: booking.id,
-              driver_id: metadata.driver_id,
-              paystack_ref: reference,
-              amount: bookingAmount,
-              driver_share: 0, // Will be calculated on completion
-              platform_share: 0, // Will be calculated on completion
-              transaction_type: 'booking',
-              settled: false,
-              created_at: new Date().toISOString(),
-            }]);
-
-          if (txError) {
-            console.error('Failed to create booking transaction:', txError);
-            throw txError;
+          if (result.success) {
+            console.log('Webhook: Booking finalized successfully:', result.booking_id);
+          } else if (result.already_processed) {
+            console.log('Webhook: Payment already processed, skipping');
+          } else {
+            console.error('Webhook: Failed to finalize booking:', result.error);
           }
-
-          // Delete the pending booking after successful booking creation
-          const { error: deleteError } = await supabase
-            .from('pending_bookings')
-            .delete()
-            .eq('id', pending_booking_id);
-
-          if (deleteError) {
-            console.error('Failed to delete pending booking:', deleteError);
-            // Don't throw - booking is already created, this is just cleanup
-          }
-
-          console.log('Booking payment processed successfully, pending booking cleaned up');
         }
       }
 
@@ -1965,14 +1873,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment callback - Paystack redirects users here after payment
+  // This also creates bookings if webhook hasn't fired (e.g., in development)
   app.get("/payment/callback", async (req, res) => {
     try {
       const { reference, trxref } = req.query;
-      const txRef = reference || trxref;
+      const txRef = (reference || trxref) as string;
 
       if (!txRef) {
         return res.redirect('/client/dashboard?payment=failed');
       }
+
+      console.log('Payment callback received for reference:', txRef);
 
       // Verify transaction with Paystack
       const verifyResponse = await fetch(`https://api.paystack.co/transaction/verify/${txRef}`, {
@@ -1986,11 +1897,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!verifyData.status || verifyData.data?.status !== 'success') {
         // Payment failed or not successful
+        console.log('Payment verification failed for reference:', txRef);
         return res.redirect('/client/dashboard?payment=failed');
       }
 
-      // Payment successful - redirect to active booking page
-      // The webhook will have already created the booking
+      const { amount, metadata } = verifyData.data;
+
+      // Handle booking payments - create booking if not already created
+      if (metadata?.type === 'booking') {
+        const bookingAmount = amount / 100; // Convert from kobo
+        const result = await finalizeBookingFromPayment(txRef, metadata, bookingAmount);
+        
+        if (result.success || result.already_processed) {
+          console.log('Callback: Booking finalized successfully:', result.booking_id);
+          return res.redirect('/client/active');
+        } else {
+          console.error('Callback: Failed to finalize booking:', result.error);
+          return res.redirect('/client/dashboard?payment=error&reason=' + encodeURIComponent(result.error || 'unknown'));
+        }
+      }
+
+      // Payment successful - redirect to appropriate page
       res.redirect('/client/active');
     } catch (error) {
       console.error('Payment callback error:', error);
