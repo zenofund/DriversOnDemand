@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
+import { useBookingStore } from '@/store/bookingStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,13 @@ function ActiveBooking() {
     enabled: !!user,
     refetchInterval: 10000, // Poll every 10 seconds for updates
   });
+
+  // Clear booking store when active booking is loaded
+  useEffect(() => {
+    if (activeBooking) {
+      useBookingStore.getState().clearBooking();
+    }
+  }, [activeBooking]);
 
   // Subscribe to booking updates
   useEffect(() => {

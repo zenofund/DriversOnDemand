@@ -1964,6 +1964,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment callback - Paystack redirects users here after payment
+  app.get("/payment/callback", async (req, res) => {
+    try {
+      const { reference, trxref } = req.query;
+      const txRef = reference || trxref;
+
+      if (!txRef) {
+        return res.redirect('/client/dashboard?payment=failed');
+      }
+
+      // Verify transaction with Paystack
+      const verifyResponse = await fetch(`https://api.paystack.co/transaction/verify/${txRef}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${PAYSTACK_SECRET}`,
+        },
+      });
+
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyData.status || verifyData.data?.status !== 'success') {
+        // Payment failed or not successful
+        return res.redirect('/client/dashboard?payment=failed');
+      }
+
+      // Payment successful - redirect to active booking page
+      // The webhook will have already created the booking
+      res.redirect('/client/active');
+    } catch (error) {
+      console.error('Payment callback error:', error);
+      res.redirect('/client/dashboard?payment=error');
+    }
+  });
+
   // ============================================================================
   // RATINGS ENDPOINTS
   // ============================================================================

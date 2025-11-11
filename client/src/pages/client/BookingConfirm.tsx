@@ -153,7 +153,8 @@ export default function BookingConfirm() {
     onSuccess: (data) => {
       // Redirect to Paystack payment page
       if (data.authorization_url) {
-        clearBooking();
+        // Note: Don't clear booking store here - it causes error toast before redirect
+        // Store will be cleared after successful payment confirmation
         window.location.href = data.authorization_url;
       } else {
         toast({
