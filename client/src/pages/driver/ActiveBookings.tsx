@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { Car, MapPin, Clock, Phone, User, CheckCircle, AlertCircle, MessageCircle } from 'lucide-react';
+import { Car, MapPin, Clock, Phone, User, CheckCircle, AlertCircle, MessageCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -99,10 +99,32 @@ export default function ActiveBookings() {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/bookings/active'] });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: 'Failed to accept',
-        description: 'Could not accept this booking',
+        description: error.message || 'Could not accept this booking',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const rejectBookingMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const res = await apiRequest('POST', `/api/bookings/${bookingId}/reject`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Booking rejected',
+        description: 'You have rejected this booking. The client will be notified.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/history'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Failed to reject',
+        description: error.message || 'Could not reject this booking',
         variant: 'destructive',
       });
     },
@@ -306,14 +328,25 @@ export default function ActiveBookings() {
                           )}
                           
                           {booking.booking_status === 'pending' && (
-                            <Button
-                              onClick={() => acceptBookingMutation.mutate(booking.id)}
-                              disabled={acceptBookingMutation.isPending}
-                              data-testid={`button-accept-${booking.id}`}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Accept Booking
-                            </Button>
+                            <>
+                              <Button
+                                onClick={() => acceptBookingMutation.mutate(booking.id)}
+                                disabled={acceptBookingMutation.isPending || rejectBookingMutation.isPending}
+                                data-testid={`button-accept-${booking.id}`}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Accept
+                              </Button>
+                              <Button
+                                onClick={() => rejectBookingMutation.mutate(booking.id)}
+                                disabled={acceptBookingMutation.isPending || rejectBookingMutation.isPending}
+                                variant="destructive"
+                                data-testid={`button-reject-${booking.id}`}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Reject
+                              </Button>
+                            </>
                           )}
                           {booking.booking_status === 'ongoing' && !booking.driver_confirmed && (
                             <Button

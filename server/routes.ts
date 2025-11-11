@@ -694,6 +694,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { id } = req.params;
 
+      // Get driver id
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(403).json({ error: "Only drivers can accept bookings" });
+      }
+
+      // Verify driver owns this booking and it's in pending status
+      const { data: booking, error: fetchError } = await supabase
+        .from('bookings')
+        .select('id, booking_status, driver_id')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      if (booking.driver_id !== driver.id) {
+        return res.status(403).json({ error: "You can only accept your own bookings" });
+      }
+
+      if (booking.booking_status !== 'pending') {
+        return res.status(400).json({ error: "Booking is not in pending status" });
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .update({ 
@@ -710,6 +740,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(data);
     } catch (error) {
+      console.error('Error accepting booking:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Reject booking
+  app.post("/api/bookings/:id/reject", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+
+      // Get driver id
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(403).json({ error: "Only drivers can reject bookings" });
+      }
+
+      // Verify driver owns this booking and it's in pending status
+      const { data: booking, error: fetchError } = await supabase
+        .from('bookings')
+        .select('id, booking_status, driver_id, payment_status, client_id')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      if (booking.driver_id !== driver.id) {
+        return res.status(403).json({ error: "You can only reject your own bookings" });
+      }
+
+      if (booking.booking_status !== 'pending') {
+        return res.status(400).json({ error: "Only pending bookings can be rejected" });
+      }
+
+      // Update booking status to cancelled
+      const { data, error } = await supabase
+        .from('bookings')
+        .update({ 
+          booking_status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error rejecting booking:', error);
+        return res.status(500).json({ error: "Failed to reject booking" });
+      }
+
+      // Handle payment refund if booking was paid
+      if (booking.payment_status === 'paid') {
+        // Mark transaction for refund by admin
+        // In future: implement Paystack refund API automation
+        console.log(`REFUND REQUIRED: Booking ${id} rejected by driver ${driver.id}. Client ${booking.client_id} needs refund.`);
+        
+        // Update transaction to flag it needs refund
+        const { error: txError } = await supabase
+          .from('transactions')
+          .update({ 
+            settled: false,
+            // Note: In future, add refund_status='pending' field to transactions table
+          })
+          .eq('booking_id', id);
+
+        if (txError) {
+          console.error('Failed to update transaction for refund:', txError);
+          // Don't fail the rejection - admin can manually handle refund
+        }
+      }
+
+      console.log(`Booking ${id} rejected by driver ${driver.id}. Payment status: ${booking.payment_status}`);
+
+      const responseMessage = booking.payment_status === 'paid' 
+        ? "Booking rejected. Refund will be processed by admin within 24 hours."
+        : "Booking rejected successfully";
+
+      res.json({ 
+        success: true, 
+        booking: data,
+        message: responseMessage
+      });
+    } catch (error) {
+      console.error('Error in reject booking endpoint:', error);
       res.status(500).json({ error: "Server error" });
     }
   });
