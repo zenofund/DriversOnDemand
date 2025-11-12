@@ -75,11 +75,9 @@ export default function MyBookings() {
     if (!paymentReference || !user || verificationStatus !== 'checking') return;
     
     // Call verification endpoint
-    apiRequest('/api/payments/verify-booking', {
-      method: 'POST',
-      body: JSON.stringify({ reference: paymentReference }),
-    })
-      .then((data: any) => {
+    apiRequest('POST', '/api/payments/verify-booking', { reference: paymentReference })
+      .then(async (res) => {
+        const data = await res.json();
         setVerificationStatus('success');
         
         // Refresh bookings list
@@ -131,9 +129,7 @@ export default function MyBookings() {
   // Confirm completion mutation
   const confirmCompletionMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      return apiRequest(`/api/bookings/${bookingId}/client-confirm`, {
-        method: 'POST',
-      });
+      return apiRequest('POST', `/api/bookings/${bookingId}/client-confirm`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bookings/client'] });
