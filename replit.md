@@ -9,6 +9,8 @@ Draba is a production-ready, full-stack platform connecting clients with verifie
 - **Button Placement Optimization**: Reorganized Chat and Complete Request buttons to appear together for better UX consistency
 - **Payment Verification Bug Fixes**: Corrected apiRequest signature usage, implemented frontend ref-based locks to prevent duplicate payment processing
 - **Backend Idempotency**: Enhanced duplicate payment handling with early transaction checks and graceful cleanup
+- **Real-time Sync Fix (PENDING MIGRATION)**: Created migration 009 to add SELECT RLS policies on bookings table, enabling clients/drivers to see each other's completion confirmations in real-time via Supabase Realtime
+- **2-Way Ratings Support (PENDING MIGRATION)**: Migration 009 adds rater_role enum to ratings table, allowing both clients and drivers to rate each other
 
 ## User Preferences
 I prefer clear, concise explanations and an iterative development approach. Please ask before implementing major changes or making significant architectural decisions. I value detailed explanations when new features or complex logic are introduced. I also want to make sure the agent does not make changes to the existing folder structure unless explicitly asked.

@@ -148,6 +148,8 @@ export const bookingSchema = z.object({
     BookingStatus.COMPLETED,
     BookingStatus.CANCELLED,
   ]),
+  client_confirmed: z.boolean(),
+  driver_confirmed: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
 });
