@@ -99,6 +99,12 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
     return name.split(' ').map((n: string) => n[0]).join('').slice(0, 2);
   };
 
+  const getProfilePictureUrl = () => {
+    if (!profile) return undefined;
+    if ('profile_picture_url' in profile) return profile.profile_picture_url || undefined;
+    return undefined;
+  };
+
   return (
     <Sidebar collapsible="icon">
       {/* Logo Section */}
@@ -114,7 +120,7 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
           <div className="flex items-center gap-3 mb-4">
             <Avatar className="h-12 w-12 border-2 border-primary/10 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
               <AvatarImage 
-                src={profile?.profile_picture_url || undefined} 
+                src={getProfilePictureUrl()} 
                 alt={getProfileName()} 
               />
               <AvatarFallback className="bg-primary/10 text-primary font-semibold">
