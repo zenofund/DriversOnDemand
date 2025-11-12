@@ -27,6 +27,13 @@ import { finalizeBookingFromPayment } from './services/paymentFinalizationServic
 // NIN verification service
 import { ninVerificationService } from './services/ninVerificationService';
 
+// Email service
+import { sendEmail, emailTemplates } from './services/emailService';
+import { EmailType } from '../shared/schema';
+
+// Svix for webhook verification
+import { Webhook } from 'svix';
+
 // Server should use service role key for full database access
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -1688,6 +1695,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.sendStatus(200);
     } catch (error) {
       console.error('Paystack webhook error:', error);
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // ============================================================================
+  // RESEND EMAIL WEBHOOK (with Svix signature verification)
+  // ============================================================================
+
+  app.post("/api/webhooks/resend", async (req, res) => {
+    try {
+      const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
+      
+      if (!RESEND_WEBHOOK_SECRET) {
+        console.error('RESEND_WEBHOOK_SECRET not configured');
+        return res.status(500).json({ error: "Webhook secret not configured" });
+      }
+
+      // Get Svix headers for signature verification
+      const svixId = req.headers['svix-id'] as string;
+      const svixTimestamp = req.headers['svix-timestamp'] as string;
+      const svixSignature = req.headers['svix-signature'] as string;
+
+      if (!svixId || !svixTimestamp || !svixSignature) {
+        console.error('Missing Svix headers');
+        return res.status(400).json({ error: "Missing signature headers" });
+      }
+
+      // Check for replay attack using svix-id (idempotency)
+      // Use ->> operator to extract JSON field as text (not ->)
+      const { data: existingEvent } = await supabase
+        .from('email_events')
+        .select('id')
+        .eq('event_data->>svix_id', svixId)
+        .maybeSingle(); // Use maybeSingle to avoid error when not found
+
+      if (existingEvent) {
+        console.log('Duplicate webhook event detected (svix-id already processed):', svixId);
+        return res.sendStatus(200); // Acknowledge but don't process
+      }
+
+      // Verify webhook signature using Svix
+      const wh = new Webhook(RESEND_WEBHOOK_SECRET);
+      
+      let payload: string;
+      if (req.rawBody && Buffer.isBuffer(req.rawBody)) {
+        payload = req.rawBody.toString('utf-8');
+      } else {
+        payload = JSON.stringify(req.body);
+      }
+
+      let verifiedPayload: any;
+      try {
+        verifiedPayload = wh.verify(payload, {
+          'svix-id': svixId,
+          'svix-timestamp': svixTimestamp,
+          'svix-signature': svixSignature,
+        }) as any;
+      } catch (err: any) {
+        console.error('Webhook signature verification failed:', err.message);
+        return res.status(401).json({ error: "Invalid signature" });
+      }
+
+      // Extract event data from verified payload
+      const { type, data } = verifiedPayload;
+      const emailId = data.email_id;
+
+      console.log('Resend webhook event (verified):', type, 'email_id:', emailId, 'svix-id:', svixId);
+
+      // Find the email log by Resend email ID
+      const { data: emailLog, error: findError } = await supabase
+        .from('email_logs')
+        .select('id')
+        .eq('resend_email_id', emailId)
+        .single();
+
+      if (findError || !emailLog) {
+        console.error('Email log not found for Resend ID:', emailId);
+        // Still return 200 to avoid Resend retries
+        return res.sendStatus(200);
+      }
+
+      // Log the webhook event with svix-id for replay protection
+      const eventData = {
+        ...data,
+        svix_id: svixId,
+        svix_timestamp: svixTimestamp
+      };
+
+      await supabase
+        .from('email_events')
+        .insert({
+          email_log_id: emailLog.id,
+          resend_email_id: emailId,
+          event_type: type,
+          event_data: eventData,
+          occurred_at: data.created_at || new Date().toISOString(),
+        });
+
+      // Update email log based on event type
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      switch (type) {
+        case 'email.sent':
+          updateData.status = 'sent';
+          updateData.sent_at = data.created_at || new Date().toISOString();
+          break;
+
+        case 'email.delivered':
+          updateData.status = 'delivered';
+          updateData.delivered_at = data.created_at || new Date().toISOString();
+          break;
+
+        case 'email.delivery_delayed':
+          // Keep current status, just log the event
+          console.log('Email delivery delayed:', emailId);
+          break;
+
+        case 'email.complained':
+          updateData.status = 'complained';
+          updateData.complained_at = data.created_at || new Date().toISOString();
+          break;
+
+        case 'email.bounced':
+          updateData.status = 'bounced';
+          updateData.bounced_at = data.created_at || new Date().toISOString();
+          if (data.bounce_classification) {
+            updateData.error_message = `Bounced: ${data.bounce_classification}`;
+          }
+          break;
+
+        case 'email.opened':
+          updateData.opened_at = data.created_at || new Date().toISOString();
+          break;
+
+        case 'email.clicked':
+          updateData.clicked_at = data.created_at || new Date().toISOString();
+          break;
+
+        default:
+          console.log('Unhandled Resend event type:', type);
+      }
+
+      // Update email log if we have status changes
+      if (Object.keys(updateData).length > 1) { // More than just updated_at
+        await supabase
+          .from('email_logs')
+          .update(updateData)
+          .eq('id', emailLog.id);
+      }
+
+      res.sendStatus(200);
+    } catch (error) {
+      console.error('Resend webhook error:', error);
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
@@ -3744,6 +3906,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
         }
 
+        // Send approval email to client (non-blocking, fire-and-forget)
+        const approvalTemplate = emailTemplates.ninVerificationApproved({
+          clientName: client.full_name,
+          approvedAt: new Date().toISOString()
+        });
+
+        sendEmail({
+          to: client.email,
+          toName: client.full_name,
+          subject: approvalTemplate.subject,
+          html: approvalTemplate.html,
+          text: approvalTemplate.text,
+          emailType: 'nin_verification_approved',
+          templateData: {
+            client_name: client.full_name,
+            approved_at: new Date().toISOString()
+          },
+          userId: client.user_id
+        }).catch(err => console.error('Failed to send NIN approval email:', err));
+
         res.json({ 
           success: true, 
           message: 'Verification approved successfully',
@@ -3788,6 +3970,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
               payload_snapshot: { admin_id: admin.id, notes }
             });
         }
+
+        // Send rejection email to client (non-blocking, fire-and-forget)
+        const rejectionTemplate = emailTemplates.ninVerificationRejected({
+          clientName: client.full_name,
+          reason: 'Your verification was manually reviewed and could not be approved',
+          adminNotes: notes
+        });
+
+        sendEmail({
+          to: client.email,
+          toName: client.full_name,
+          subject: rejectionTemplate.subject,
+          html: rejectionTemplate.html,
+          text: rejectionTemplate.text,
+          emailType: 'nin_verification_rejected',
+          templateData: {
+            client_name: client.full_name,
+            reason: 'Manual review',
+            admin_notes: notes
+          },
+          userId: client.user_id
+        }).catch(err => console.error('Failed to send NIN rejection email:', err));
 
         res.json({ 
           success: true, 

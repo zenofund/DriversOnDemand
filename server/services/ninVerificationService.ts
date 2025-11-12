@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { sendEmail, emailTemplates } from './emailService';
+import { EmailType } from '../../shared/schema';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -299,6 +301,46 @@ export class NINVerificationService {
           message: 'Account locked after 3 failed attempts',
           payload_snapshot: { attempts: 3 },
         });
+
+        // Get client details for admin alert email
+        const { data: client } = await supabase
+          .from('clients')
+          .select('full_name, email')
+          .eq('id', clientId)
+          .single();
+
+        // Send admin alert email (non-blocking, fire-and-forget)
+        if (client) {
+          const adminAlertTemplate = emailTemplates.ninVerificationLocked({
+            clientName: client.full_name,
+            clientEmail: client.email,
+            attemptsCount: 3
+          });
+
+          // Get active admin emails
+          const { data: admins } = await supabase
+            .from('admin_users')
+            .select('email')
+            .eq('is_active', true);
+
+          // Send email to all active admins
+          if (admins && admins.length > 0) {
+            admins.forEach((admin: any) => {
+              sendEmail({
+                to: admin.email,
+                subject: adminAlertTemplate.subject,
+                html: adminAlertTemplate.html,
+                text: adminAlertTemplate.text,
+                emailType: 'admin_alert',
+                templateData: {
+                  client_name: client.full_name,
+                  client_email: client.email,
+                  attempts_count: 3
+                }
+              }).catch(err => console.error('Failed to send admin alert email:', err));
+            });
+          }
+        }
 
         return {
           success: false,

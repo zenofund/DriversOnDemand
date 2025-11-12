@@ -70,7 +70,7 @@ interface SendEmailParams {
   subject: string;
   html: string;
   text: string;
-  emailType: keyof typeof EmailType;
+  emailType: typeof EmailType[keyof typeof EmailType]; // Accept the enum values, not keys
   templateData?: Record<string, any>;
   userId?: string;
   bookingId?: string;
@@ -494,5 +494,227 @@ export const emailTemplates = {
       </html>
     `,
     text: `Hi ${data.clientName},\n\nPayment Successful!\n\nAmount: ₦${data.amount.toLocaleString()}\nReference: ${data.reference}\nBooking ID: ${data.bookingId}\nPaid At: ${new Date(data.paidAt).toLocaleString()}\n\nDraba - Secure Payment Processing`
+  }),
+
+  // Trip Started
+  tripStarted: (data: {
+    clientName: string;
+    driverName: string;
+    bookingId: string;
+  }) => ({
+    subject: '🚀 Your Trip Has Started - Draba',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+            .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6; }
+            .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🚀 Trip Started!</h1>
+            </div>
+            <div class="content">
+              <p>Hi ${data.clientName},</p>
+              <p>Your driver has started the trip. You can now track your journey in real-time.</p>
+              <div class="info-box">
+                <p><strong>Driver:</strong> ${data.driverName}</p>
+                <p><strong>Booking ID:</strong> ${data.bookingId}</p>
+              </div>
+              <p>Have a safe and pleasant journey!</p>
+              <a href="${process.env.VITE_SUPABASE_URL || 'https://draba.com'}/client/bookings/${data.bookingId}" class="button">Track Live</a>
+            </div>
+            <div class="footer">
+              <p>Draba - Your journey, our priority</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Hi ${data.clientName},\n\nYour trip has started! Driver ${data.driverName} is on the way.\n\nBooking ID: ${data.bookingId}\n\nTrack your trip in real-time on the Draba app.\n\nDraba - Your journey, our priority`
+  }),
+
+  // Trip Completed
+  tripCompleted: (data: {
+    clientName: string;
+    driverName: string;
+    bookingId: string;
+    totalCost: number;
+  }) => ({
+    subject: '✅ Trip Completed - Please Rate Your Driver',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+            .summary-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .button { display: inline-block; background: #f59e0b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Trip Completed!</h1>
+            </div>
+            <div class="content">
+              <p>Hi ${data.clientName},</p>
+              <p>Thank you for using Draba! Your trip has been completed successfully.</p>
+              <div class="summary-box">
+                <p><strong>Driver:</strong> ${data.driverName}</p>
+                <p><strong>Total Cost:</strong> ₦${data.totalCost.toLocaleString()}</p>
+                <p><strong>Booking ID:</strong> ${data.bookingId}</p>
+              </div>
+              <p>We'd love to hear about your experience. Please take a moment to rate your driver.</p>
+              <a href="${process.env.VITE_SUPABASE_URL || 'https://draba.com'}/client/bookings/${data.bookingId}?rate=true" class="button">Rate Driver ⭐</a>
+            </div>
+            <div class="footer">
+              <p>Draba - Thank you for choosing us!</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Hi ${data.clientName},\n\nYour trip has been completed successfully!\n\nDriver: ${data.driverName}\nTotal Cost: ₦${data.totalCost.toLocaleString()}\nBooking ID: ${data.bookingId}\n\nPlease rate your driver to help us improve our service.\n\nDraba - Thank you for choosing us!`
+  }),
+
+  // Driver Payout Notification
+  driverPayout: (data: {
+    driverName: string;
+    amount: number;
+    bookingId: string;
+    transferReference: string;
+    paidAt: string;
+  }) => ({
+    subject: '💰 Payout Processed - Draba',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+            .payout-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 2px solid #10b981; }
+            .amount { font-size: 32px; font-weight: bold; color: #10b981; text-align: center; margin: 20px 0; }
+            .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+            .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>💰 Payout Processed</h1>
+            </div>
+            <div class="content">
+              <p>Hi ${data.driverName},</p>
+              <p>Great news! Your payout has been processed successfully.</p>
+              <div class="payout-box">
+                <div class="amount">₦${data.amount.toLocaleString()}</div>
+                <div class="detail-row">
+                  <span>Transfer Reference:</span>
+                  <strong>${data.transferReference}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Booking ID:</span>
+                  <strong>${data.bookingId}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Processed At:</span>
+                  <strong>${new Date(data.paidAt).toLocaleString()}</strong>
+                </div>
+              </div>
+              <p>The funds should appear in your bank account within 24 hours.</p>
+            </div>
+            <div class="footer">
+              <p>Draba - Empowering professional drivers</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Hi ${data.driverName},\n\nYour payout has been processed!\n\nAmount: ₦${data.amount.toLocaleString()}\nTransfer Reference: ${data.transferReference}\nBooking ID: ${data.bookingId}\nProcessed At: ${new Date(data.paidAt).toLocaleString()}\n\nFunds should appear in your account within 24 hours.\n\nDraba - Empowering professional drivers`
+  }),
+
+  // Driver New Booking Assignment
+  driverNewBooking: (data: {
+    driverName: string;
+    clientName: string;
+    pickupLocation: string;
+    destination: string;
+    cost: number;
+    bookingId: string;
+  }) => ({
+    subject: '🔔 New Booking Request - Draba',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+            .booking-card { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+            .button { display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔔 New Booking Request!</h1>
+            </div>
+            <div class="content">
+              <p>Hi ${data.driverName},</p>
+              <p>You have a new booking request. The client has already made payment.</p>
+              <div class="booking-card">
+                <h3>Booking Details</h3>
+                <div class="detail-row">
+                  <span>Client:</span>
+                  <strong>${data.clientName}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Pickup:</span>
+                  <strong>${data.pickupLocation}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Destination:</span>
+                  <strong>${data.destination}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Your Earnings:</span>
+                  <strong>₦${data.cost.toLocaleString()}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Booking ID:</span>
+                  <strong>${data.bookingId}</strong>
+                </div>
+              </div>
+              <p>Please review and accept this booking as soon as possible.</p>
+              <a href="${process.env.VITE_SUPABASE_URL || 'https://draba.com'}/driver/bookings/${data.bookingId}" class="button">View Booking</a>
+            </div>
+            <div class="footer">
+              <p>Draba - Connecting you with verified clients</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Hi ${data.driverName},\n\nYou have a new booking request!\n\nClient: ${data.clientName}\nPickup: ${data.pickupLocation}\nDestination: ${data.destination}\nYour Earnings: ₦${data.cost.toLocaleString()}\nBooking ID: ${data.bookingId}\n\nPlease review and accept this booking.\n\nDraba - Connecting you with verified clients`
   })
 };
