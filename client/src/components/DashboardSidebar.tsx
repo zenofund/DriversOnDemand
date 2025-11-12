@@ -24,6 +24,7 @@ import {
   BarChart3,
   AlertCircle,
   CreditCard,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { Driver } from '@shared/schema';
@@ -70,6 +71,7 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
       { icon: Car, label: 'Bookings', path: '/admin/bookings' },
       { icon: CreditCard, label: 'Transactions', path: '/admin/transactions' },
       { icon: AlertCircle, label: 'Disputes', path: '/admin/disputes' },
+      { icon: ShieldCheck, label: 'NIN Verifications', path: '/admin/nin-verifications' },
       { icon: Settings, label: 'Settings', path: '/admin/settings' },
     ];
 

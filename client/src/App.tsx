@@ -35,6 +35,7 @@ import AdminDisputes from "@/pages/admin/Disputes";
 import AdminSettings from "@/pages/admin/Settings";
 import AdminAnalytics from "@/pages/admin/Analytics";
 import AdminManagement from "@/pages/admin/AdminManagement";
+import AdminNINVerifications from "@/pages/admin/NINVerifications";
 import FirstTimeSetup from "@/pages/admin/FirstTimeSetup";
 import NotFound from "@/pages/not-found";
 
@@ -67,6 +68,7 @@ function Router() {
       <Route path="/admin/bookings" component={AdminBookings} />
       <Route path="/admin/transactions" component={AdminTransactions} />
       <Route path="/admin/disputes" component={AdminDisputes} />
+      <Route path="/admin/nin-verifications" component={AdminNINVerifications} />
       <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
     </Switch>
