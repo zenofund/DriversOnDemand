@@ -43,6 +43,12 @@ CREATE TABLE IF NOT EXISTS clients (
   email TEXT NOT NULL UNIQUE,
   phone TEXT NOT NULL,
   verified BOOLEAN DEFAULT FALSE,
+  nin_verification_state TEXT CHECK (nin_verification_state IN ('unverified', 'pending', 'verified', 'locked', 'pending_manual')) DEFAULT 'unverified',
+  nin_verified_at TIMESTAMPTZ,
+  last_attempt_at TIMESTAMPTZ,
+  nin_attempts_count INTEGER DEFAULT 0,
+  nin_last_confidence NUMERIC,
+  nin_reference_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -121,6 +127,36 @@ CREATE TABLE IF NOT EXISTS messages (
   sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   sender_role TEXT NOT NULL CHECK (sender_role IN ('driver', 'client')),
   message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- NIN VERIFICATION TABLES
+-- ============================================================================
+
+-- Main NIN verification records
+CREATE TABLE IF NOT EXISTS nin_verifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE NOT NULL,
+  nin_hash TEXT NOT NULL,
+  selfie_storage_path TEXT,
+  status TEXT CHECK (status IN ('success', 'failed', 'pending', 'rejected', 'approved')) NOT NULL,
+  confidence_score NUMERIC,
+  request_metadata JSONB,
+  response_metadata JSONB,
+  failure_reason TEXT,
+  reviewer_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- NIN verification events log (audit trail)
+CREATE TABLE IF NOT EXISTS nin_verification_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  verification_id UUID REFERENCES nin_verifications(id) ON DELETE CASCADE NOT NULL,
+  event_type TEXT CHECK (event_type IN ('attempt', 'success', 'failure', 'locked', 'admin_override', 'admin_approve', 'admin_reject')) NOT NULL,
+  message TEXT,
+  payload_snapshot JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
