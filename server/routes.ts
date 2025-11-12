@@ -3565,6 +3565,244 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // ADMIN NIN VERIFICATION REVIEW ENDPOINTS
+  // ============================================================================
+
+  // Get all pending NIN verifications (locked or pending_manual status)
+  app.get("/api/admin/nin-verifications/pending", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      // Fetch clients with locked or pending_manual verification status
+      const { data: clients, error } = await supabase
+        .from('clients')
+        .select(`
+          id,
+          full_name,
+          email,
+          phone,
+          nin_verification_state,
+          nin_verified_at,
+          last_attempt_at,
+          nin_attempts_count,
+          nin_last_confidence,
+          nin_reference_id,
+          created_at
+        `)
+        .in('nin_verification_state', ['locked', 'pending_manual'])
+        .order('last_attempt_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching pending NIN verifications:', error);
+        return res.status(500).json({ error: "Failed to fetch pending verifications" });
+      }
+
+      // For each client, fetch their latest verification attempt
+      const clientsWithVerifications = await Promise.all(
+        (clients || []).map(async (client) => {
+          const { data: latestVerification } = await supabase
+            .from('nin_verifications')
+            .select('*')
+            .eq('client_id', client.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          return {
+            ...client,
+            latest_verification: latestVerification
+          };
+        })
+      );
+
+      res.json(clientsWithVerifications);
+    } catch (error) {
+      console.error('Error in /api/admin/nin-verifications/pending:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Review and approve/reject a NIN verification
+  app.post("/api/admin/nin-verifications/:id/review", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const clientId = req.params.id;
+      const { action, notes } = req.body;
+
+      if (!action || !['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ error: "Action must be 'approve' or 'reject'" });
+      }
+
+      // Get client current state
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', clientId)
+        .single();
+
+      if (clientError || !client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      if (!['locked', 'pending_manual'].includes(client.nin_verification_state)) {
+        return res.status(400).json({ 
+          error: "Client verification is not pending manual review" 
+        });
+      }
+
+      // Get the latest verification record to update
+      const { data: verification } = await supabase
+        .from('nin_verifications')
+        .select('id')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (action === 'approve') {
+        // Approve: Set client to verified state
+        const { error: updateError } = await supabase
+          .from('clients')
+          .update({
+            nin_verification_state: 'verified',
+            nin_verified_at: new Date().toISOString(),
+            nin_attempts_count: 0,
+            last_attempt_at: null
+          })
+          .eq('id', clientId);
+
+        if (updateError) {
+          console.error('Error approving verification:', updateError);
+          return res.status(500).json({ error: "Failed to approve verification" });
+        }
+
+        // Update verification record
+        if (verification) {
+          await supabase
+            .from('nin_verifications')
+            .update({
+              status: 'verified',
+              reviewer_id: admin.id,
+              reviewed_at: new Date().toISOString()
+            })
+            .eq('id', verification.id);
+
+          // Log event
+          await supabase
+            .from('nin_verification_events')
+            .insert({
+              verification_id: verification.id,
+              event_type: 'manual_approval',
+              message: `Admin manually approved NIN verification. Notes: ${notes || 'None'}`,
+              payload_snapshot: { admin_id: admin.id, notes }
+            });
+        }
+
+        res.json({ 
+          success: true, 
+          message: 'Verification approved successfully',
+          client_id: clientId,
+          new_state: 'verified'
+        });
+
+      } else {
+        // Reject: Keep locked state, reset attempts
+        const { error: updateError } = await supabase
+          .from('clients')
+          .update({
+            nin_attempts_count: 0,
+            last_attempt_at: null
+          })
+          .eq('id', clientId);
+
+        if (updateError) {
+          console.error('Error rejecting verification:', updateError);
+          return res.status(500).json({ error: "Failed to reject verification" });
+        }
+
+        // Update verification record
+        if (verification) {
+          await supabase
+            .from('nin_verifications')
+            .update({
+              status: 'rejected',
+              reviewer_id: admin.id,
+              reviewed_at: new Date().toISOString(),
+              failure_reason: notes || 'Manually rejected by admin'
+            })
+            .eq('id', verification.id);
+
+          // Log event
+          await supabase
+            .from('nin_verification_events')
+            .insert({
+              verification_id: verification.id,
+              event_type: 'manual_rejection',
+              message: `Admin manually rejected NIN verification. Notes: ${notes || 'None'}`,
+              payload_snapshot: { admin_id: admin.id, notes }
+            });
+        }
+
+        res.json({ 
+          success: true, 
+          message: 'Verification rejected successfully',
+          client_id: clientId,
+          new_state: 'locked'
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in /api/admin/nin-verifications/:id/review:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
