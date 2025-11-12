@@ -315,18 +315,6 @@ export default function ActiveBookings() {
                           </p>
                         </div>
                         <div className="flex gap-2">
-                          {/* Chat Button - Available for all active bookings */}
-                          {(booking.booking_status === 'accepted' || booking.booking_status === 'ongoing') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setLocation(`/driver/chat/${booking.id}`)}
-                            >
-                              <MessageCircle className="h-4 w-4 mr-2" />
-                              Chat
-                            </Button>
-                          )}
-                          
                           {booking.booking_status === 'pending' && (
                             <>
                               <Button
@@ -348,16 +336,31 @@ export default function ActiveBookings() {
                               </Button>
                             </>
                           )}
-                          {booking.booking_status === 'ongoing' && !booking.driver_confirmed && (
-                            <Button
-                              onClick={() => confirmCompletionMutation.mutate(booking.id)}
-                              disabled={confirmCompletionMutation.isPending}
-                              className="bg-green-600 hover:bg-green-700"
-                              data-testid={`button-confirm-${booking.id}`}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              {confirmCompletionMutation.isPending ? 'Confirming...' : 'Confirm Completion'}
-                            </Button>
+                          
+                          {/* Chat and Complete buttons for accepted/ongoing bookings */}
+                          {(booking.booking_status === 'accepted' || booking.booking_status === 'ongoing') && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setLocation(`/driver/chat/${booking.id}`)}
+                              >
+                                <MessageCircle className="h-4 w-4 mr-2" />
+                                Chat
+                              </Button>
+                              
+                              {!booking.driver_confirmed && (
+                                <Button
+                                  onClick={() => confirmCompletionMutation.mutate(booking.id)}
+                                  disabled={confirmCompletionMutation.isPending}
+                                  className="bg-green-600 hover:bg-green-700"
+                                  data-testid={`button-confirm-${booking.id}`}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  {confirmCompletionMutation.isPending ? 'Confirming...' : 'Complete Request'}
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>

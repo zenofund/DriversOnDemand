@@ -241,15 +241,31 @@ function ActiveBooking() {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleChat}
-                      data-testid="button-chat"
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Chat
-                    </Button>
+                    {(activeBooking.booking_status === 'accepted' || activeBooking.booking_status === 'ongoing') && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleChat}
+                          data-testid="button-chat"
+                        >
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          Chat
+                        </Button>
+                        {!activeBooking.client_confirmed && (
+                          <Button
+                            size="sm"
+                            onClick={handleConfirmCompletion}
+                            disabled={confirmCompletionMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700"
+                            data-testid="button-complete"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            {confirmCompletionMutation.isPending ? 'Confirming...' : 'Complete Request'}
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -319,44 +335,6 @@ function ActiveBooking() {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Actions */}
-              {activeBooking.booking_status === 'ongoing' && !activeBooking.client_confirmed && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Confirm Completion</CardTitle>
-                    <CardDescription>
-                      Have you reached your destination safely?
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
-                      onClick={handleConfirmCompletion}
-                      disabled={confirmCompletionMutation.isPending}
-                      className="w-full"
-                      data-testid="button-confirm-completion"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      {confirmCompletionMutation.isPending
-                        ? 'Confirming...'
-                        : 'Confirm Trip Completion'}
-                    </Button>
-                    <p className="text-sm text-muted-foreground mt-4">
-                      Once both you and the driver confirm completion, payment will be released to the driver.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {activeBooking.client_confirmed && !activeBooking.driver_confirmed && (
-                <Card className="bg-muted/50">
-                  <CardContent className="pt-6">
-                    <p className="text-sm text-center text-muted-foreground">
-                      You've confirmed completion. Waiting for driver confirmation...
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           )}
         </div>

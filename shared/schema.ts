@@ -253,11 +253,17 @@ export type DashboardStats = {
 // RATING SCHEMAS
 // ============================================================================
 
+export const RaterRole = {
+  CLIENT: 'client',
+  DRIVER: 'driver',
+} as const;
+
 export const ratingSchema = z.object({
   id: z.string().uuid(),
   booking_id: z.string().uuid(),
   client_id: z.string().uuid(),
   driver_id: z.string().uuid(),
+  rater_role: z.enum([RaterRole.CLIENT, RaterRole.DRIVER]),
   rating: z.number().int().min(1).max(5),
   review: z.string().nullable(),
   created_at: z.string(),
@@ -265,6 +271,7 @@ export const ratingSchema = z.object({
 
 export const insertRatingSchema = z.object({
   booking_id: z.string().uuid(),
+  rater_role: z.enum([RaterRole.CLIENT, RaterRole.DRIVER]),
   rating: z.number().int().min(1, "Rating must be at least 1").max(5, "Rating must be at most 5"),
   review: z.string().optional(),
 });

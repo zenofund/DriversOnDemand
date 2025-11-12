@@ -105,16 +105,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_first_admin
   ON admin_users (is_first_admin) 
   WHERE is_first_admin = TRUE;
 
--- Ratings Table
+-- Create enum for rater role
+DO $$ BEGIN
+  CREATE TYPE rater_role_enum AS ENUM ('client', 'driver');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+-- Ratings Table (2-way ratings: both driver and client can rate)
 CREATE TABLE IF NOT EXISTS ratings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE NOT NULL,
   client_id UUID REFERENCES clients(id) ON DELETE CASCADE NOT NULL,
   driver_id UUID REFERENCES drivers(id) ON DELETE CASCADE NOT NULL,
+  rater_role rater_role_enum NOT NULL DEFAULT 'client',
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
   review TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(booking_id) -- One rating per booking
+  UNIQUE(booking_id, rater_role) -- Allow both driver and client to rate
 );
 
 -- ============================================================================

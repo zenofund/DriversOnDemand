@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
-import { Calendar, MapPin, DollarSign, User, Clock, MessageCircle } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, User, Clock, MessageCircle, Star } from 'lucide-react';
 import { RatingDialog } from '@/components/RatingDialog';
 import { DashboardLayout } from '@/components/DashboardLayout';
 
@@ -347,13 +347,15 @@ export default function MyBookings() {
                     </div>
                   )}
 
-                  {booking.booking_status === 'completed' && (
+                  {/* Review button - Show after both parties confirm completion */}
+                  {booking.client_confirmed && booking.driver_confirmed && (
                     <Button
                       variant="outline"
                       onClick={() => setSelectedBookingForRating(booking)}
                       data-testid={`button-rate-${booking.id}`}
                     >
-                      Rate Driver
+                      <Star className="h-4 w-4 mr-2" />
+                      Review Driver
                     </Button>
                   )}
                 </div>
