@@ -17,11 +17,14 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 export default function DriverDashboard() {
   const [, setLocation] = useLocation();
   const searchParams = new URLSearchParams(useSearch());
-  const paymentSuccess = searchParams.get('payment_success') === 'true';
+  const paymentReference = searchParams.get('reference');
   const { user, profile, isLoading, logout } = useAuthStore();
   const { toast } = useToast();
   const [isOnline, setIsOnline] = useState(false);
-  const [isWaitingForVerification, setIsWaitingForVerification] = useState(paymentSuccess);
+  const [isWaitingForVerification, setIsWaitingForVerification] = useState(!!paymentReference);
+  const [verificationStatus, setVerificationStatus] = useState<'checking' | 'success' | 'failed' | null>(
+    paymentReference ? 'checking' : null
+  );
   const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isTogglingOnlineRef = useRef(false);
   const hasValidLocationRef = useRef(false);
@@ -33,7 +36,50 @@ export default function DriverDashboard() {
     queryKey: ['/api/drivers/me'],
     enabled: !!user,
     refetchOnWindowFocus: false,
-    refetchInterval: isWaitingForVerification ? 2000 : false, // Poll every 2 seconds when waiting
+    refetchInterval: false, // Don't poll - we verify immediately via API
+  });
+
+  // Mutation to verify payment via Paystack API
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (reference: string) => {
+      const response = await apiRequest('POST', '/api/drivers/verification/confirm', { reference });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Verification failed');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.verified) {
+        setVerificationStatus('success');
+        setIsWaitingForVerification(false);
+        
+        // Refetch driver data and update auth store
+        refetchDriverData().then(({ data: freshDriver }) => {
+          if (freshDriver) {
+            const { setProfile } = useAuthStore.getState();
+            setProfile(freshDriver);
+          }
+        });
+        
+        // Clean up URL
+        window.history.replaceState({}, '', '/driver/dashboard');
+        
+        toast({
+          title: 'Verification successful!',
+          description: 'Your account has been verified. You can now start accepting bookings.',
+          duration: 5000,
+        });
+      }
+    },
+    onError: (error: Error) => {
+      setVerificationStatus('failed');
+      toast({
+        title: 'Verification failed',
+        description: error.message || 'Please try again or contact support',
+        variant: 'destructive',
+      });
+    },
   });
 
   useEffect(() => {
@@ -68,47 +114,22 @@ export default function DriverDashboard() {
     }
   }, [isLoading, user, profile, driverData, setLocation, toast, isWaitingForVerification]);
 
-  // Handle payment success and wait for verification
+  // Auto-verify payment when redirected with reference
   useEffect(() => {
-    if (!isWaitingForVerification || !driverData) return;
+    if (!paymentReference || !user || verifyPaymentMutation.isPending) return;
+    
+    // Automatically call verification API
+    console.log('Auto-verifying payment with reference:', paymentReference);
+    verifyPaymentMutation.mutate(paymentReference);
+  }, [paymentReference, user]);
 
-    // Check if driver is now verified
-    if (driverData.verified) {
-      setIsWaitingForVerification(false);
-      
-      // Update auth store profile with verified driver data
-      const { setProfile } = useAuthStore.getState();
-      setProfile(driverData);
-      
-      // Remove query param from URL
-      window.history.replaceState({}, '', '/driver/dashboard');
-      
-      toast({
-        title: 'Verification successful!',
-        description: 'Your account has been verified. You can now start accepting bookings.',
-        duration: 5000,
-      });
+  // Manual retry handler
+  const handleManualVerify = () => {
+    if (paymentReference) {
+      setVerificationStatus('checking');
+      verifyPaymentMutation.mutate(paymentReference);
     }
-  }, [isWaitingForVerification, driverData, toast]);
-
-  // Set timeout for verification wait
-  useEffect(() => {
-    if (!isWaitingForVerification) return;
-
-    // After 30 seconds, stop waiting and show message
-    const timeout = setTimeout(() => {
-      if (isWaitingForVerification) {
-        setIsWaitingForVerification(false);
-        toast({
-          title: 'Verification is processing',
-          description: 'Your payment is being processed. Please refresh the page in a few moments.',
-          duration: 8000,
-        });
-      }
-    }, 30000);
-
-    return () => clearTimeout(timeout);
-  }, [isWaitingForVerification, toast]);
+  };
 
   const { data: activeBookings = [] } = useQuery<BookingWithDetails[]>({
     queryKey: ['/api/bookings/active'],
@@ -387,21 +408,58 @@ export default function DriverDashboard() {
         <Card className="max-w-md w-full mx-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-6 w-6 text-primary animate-pulse" />
-              Processing Verification
+              {verificationStatus === 'checking' && (
+                <ShieldCheck className="h-6 w-6 text-primary animate-pulse" />
+              )}
+              {verificationStatus === 'success' && (
+                <Check className="h-6 w-6 text-green-600" />
+              )}
+              {verificationStatus === 'failed' && (
+                <X className="h-6 w-6 text-red-600" />
+              )}
+              {verificationStatus === 'checking' && 'Verifying Payment'}
+              {verificationStatus === 'success' && 'Verification Complete!'}
+              {verificationStatus === 'failed' && 'Verification Failed'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              Thank you for your payment! We're confirming your verification status...
-            </p>
-            <div className="flex items-center gap-2 text-sm">
-              <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-              <span>This usually takes just a few seconds</span>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              If this takes too long, please refresh the page or contact support.
-            </div>
+            {verificationStatus === 'checking' && (
+              <>
+                <p className="text-muted-foreground">
+                  Thank you for your payment! We're confirming your verification status with Paystack...
+                </p>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+                  <span>This usually takes just a few seconds</span>
+                </div>
+              </>
+            )}
+
+            {verificationStatus === 'success' && (
+              <p className="text-green-600 dark:text-green-400">
+                Your payment has been confirmed and your account is now verified!
+              </p>
+            )}
+
+            {verificationStatus === 'failed' && (
+              <>
+                <p className="text-muted-foreground">
+                  We couldn't verify your payment automatically. This might be a temporary issue.
+                </p>
+                <div className="space-y-2">
+                  <Button 
+                    onClick={handleManualVerify}
+                    className="w-full"
+                    disabled={verifyPaymentMutation.isPending}
+                  >
+                    {verifyPaymentMutation.isPending ? 'Verifying...' : 'Retry Verification'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Or contact support if the issue persists
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

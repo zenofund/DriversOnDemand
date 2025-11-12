@@ -31,6 +31,9 @@ import { ninVerificationService } from './services/ninVerificationService';
 import { sendEmail, emailTemplates } from './services/emailService';
 import { EmailType } from '../shared/schema';
 
+// Paystack verification service
+import { verifyDriverVerificationPayment } from './services/paystackService';
+
 // Svix for webhook verification
 import { Webhook } from 'svix';
 
@@ -1634,46 +1637,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (event.event === 'charge.success') {
         const { reference, amount, metadata } = event.data;
 
-        // Handle verification payment
+        // Handle verification payment using shared verification service
         if (metadata?.type === 'verification') {
-          console.log('Processing verification payment for driver:', metadata.driver_id);
+          console.log('Webhook: Processing verification payment for driver:', metadata.driver_id);
           
-          const { data: updatedDriver, error: updateError } = await supabase
-            .from('drivers')
-            .update({
-              verified: true,
-              verification_payment_ref: reference,
-            })
-            .eq('id', metadata.driver_id)
-            .select()
-            .single();
-
-          if (updateError) {
-            console.error('Failed to update driver verification:', updateError);
-            throw updateError;
-          }
-
-          console.log('Driver verified successfully:', updatedDriver.id);
-
-          const verificationAmount = amount / 100;
+          const result = await verifyDriverVerificationPayment(reference, metadata.driver_id);
           
-          // Create transaction record (verification fee goes 100% to platform)
-          const { error: txError } = await supabase
-            .from('transactions')
-            .insert([{
-              driver_id: metadata.driver_id,
-              paystack_ref: reference,
-              amount: verificationAmount,
-              driver_share: 0,
-              platform_share: verificationAmount,
-              transaction_type: 'verification',
-              settled: true,
-              created_at: new Date().toISOString(),
-            }]);
-
-          if (txError) {
-            console.error('Failed to create verification transaction:', txError);
-            // Don't throw - driver is already verified, transaction is just for record keeping
+          if (result.success) {
+            console.log('Webhook: Driver verified successfully via service');
+          } else {
+            console.error('Webhook: Verification failed:', result.error);
           }
         }
 
@@ -1886,7 +1859,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Construct the callback URL from the request
       const callbackUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-      const fullCallbackUrl = `${callbackUrl}/driver/dashboard?payment_success=true`;
 
       // Initialize Paystack payment
       const response = await fetch('https://api.paystack.co/transaction/initialize', {
@@ -1903,7 +1875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             driver_id: driver.id,
             driver_name: driver.full_name,
           },
-          callback_url: fullCallbackUrl,
+          callback_url: `${callbackUrl}/driver/dashboard`,
         }),
       });
 
@@ -1918,6 +1890,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reference: data.data.reference,
       });
     } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Confirm driver verification payment (manual/auto verification)
+  app.post("/api/drivers/verification/confirm", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Get driver
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id, verified, verification_payment_ref')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(404).json({ error: "Driver not found" });
+      }
+
+      const { reference } = req.body;
+
+      if (!reference || typeof reference !== 'string') {
+        return res.status(400).json({ error: "Payment reference is required" });
+      }
+
+      // Call Paystack verification service
+      const result = await verifyDriverVerificationPayment(reference, driver.id);
+
+      if (!result.success) {
+        console.error('Verification failed:', result.error);
+        return res.status(400).json({ 
+          error: result.error || 'Verification failed',
+          verified: false
+        });
+      }
+
+      // Refetch driver to get updated data
+      const { data: updatedDriver } = await supabase
+        .from('drivers')
+        .select('id, verified, verification_payment_ref')
+        .eq('id', driver.id)
+        .single();
+
+      res.json({
+        success: true,
+        verified: updatedDriver?.verified || false,
+        message: result.message,
+        data: result.data
+      });
+    } catch (error) {
+      console.error('Verification endpoint error:', error);
       res.status(500).json({ error: "Server error" });
     }
   });
