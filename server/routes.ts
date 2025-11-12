@@ -24,6 +24,9 @@ import { processCompletionPayout } from './services/completionPayoutService';
 // Payment finalization service
 import { finalizeBookingFromPayment } from './services/paymentFinalizationService';
 
+// NIN verification service
+import { ninVerificationService } from './services/ninVerificationService';
+
 // Server should use service role key for full database access
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -529,6 +532,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(data);
     } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get NIN verification status
+  app.get("/api/clients/verification-status", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      const status = await ninVerificationService.getVerificationStatus(client.id);
+      res.json(status);
+    } catch (error) {
+      console.error('Error getting verification status:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Verify NIN
+  app.post("/api/clients/verify-nin", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      const { nin, selfie } = req.body;
+
+      if (!nin || typeof nin !== 'string') {
+        return res.status(400).json({ error: "NIN is required" });
+      }
+
+      if (!/^\d{11}$/.test(nin)) {
+        return res.status(400).json({ error: "NIN must be exactly 11 digits" });
+      }
+
+      const result = await ninVerificationService.verifyNIN({
+        nin,
+        selfieBase64: selfie,
+        clientId: client.id,
+      });
+
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error('Error verifying NIN:', error);
       res.status(500).json({ error: "Server error" });
     }
   });
