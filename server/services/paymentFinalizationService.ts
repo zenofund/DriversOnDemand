@@ -39,7 +39,8 @@ export async function finalizeBookingFromPayment(
 
     console.log('Finalizing payment for pending_booking:', pending_booking_id, 'reference:', reference);
 
-    // Check if transaction already exists (idempotency check)
+    // CRITICAL: Check if transaction already exists FIRST (idempotency check)
+    // This prevents race conditions with concurrent requests
     const { data: existingTransaction } = await supabase
       .from('transactions')
       .select('id, booking_id')
@@ -72,6 +73,21 @@ export async function finalizeBookingFromPayment(
 
     if (!pendingBooking) {
       console.error('Pending booking not found or already processed:', pending_booking_id);
+      // Check if booking was already processed
+      const { data: checkTx } = await supabase
+        .from('transactions')
+        .select('id, booking_id')
+        .eq('paystack_ref', reference)
+        .maybeSingle();
+      
+      if (checkTx) {
+        return {
+          success: true,
+          already_processed: true,
+          booking_id: checkTx.booking_id,
+        };
+      }
+
       return {
         success: false,
         error: 'Pending booking not found or expired',
@@ -86,6 +102,22 @@ export async function finalizeBookingFromPayment(
       return {
         success: false,
         error: 'Booking session expired',
+      };
+    }
+
+    // Double-check transaction doesn't exist (race condition guard)
+    const { data: doubleCheckTx } = await supabase
+      .from('transactions')
+      .select('id, booking_id')
+      .eq('paystack_ref', reference)
+      .maybeSingle();
+
+    if (doubleCheckTx) {
+      console.log('Transaction created by concurrent request:', reference);
+      return {
+        success: true,
+        already_processed: true,
+        booking_id: doubleCheckTx.booking_id,
       };
     }
 
@@ -121,7 +153,7 @@ export async function finalizeBookingFromPayment(
     console.log('Booking created successfully:', booking.id);
 
     // Create transaction record
-    // Mark as settled=false - will be settled when driver completes and confirms
+    // The unique constraint on paystack_ref will prevent duplicates
     const { error: txError } = await supabase
       .from('transactions')
       .insert([{
@@ -137,8 +169,31 @@ export async function finalizeBookingFromPayment(
       }]);
 
     if (txError) {
+      // If transaction insert fails due to duplicate key, another request won the race
+      if (txError.code === '23505') {
+        console.log('Transaction already created by concurrent request, cleaning up duplicate booking');
+        // Delete the duplicate booking we just created
+        await supabase.from('bookings').delete().eq('id', booking.id);
+        
+        // Return the existing transaction's booking
+        const { data: existingTx } = await supabase
+          .from('transactions')
+          .select('booking_id')
+          .eq('paystack_ref', reference)
+          .single();
+        
+        return {
+          success: true,
+          already_processed: true,
+          booking_id: existingTx?.booking_id,
+        };
+      }
+      
       console.error('Failed to create transaction record:', txError);
-      // Don't fail - booking is already created
+      return {
+        success: false,
+        error: 'Failed to create transaction record',
+      };
     }
 
     // Clean up pending booking

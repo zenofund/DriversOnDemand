@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { useLocation } from 'wouter';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +48,10 @@ export default function MyBookings() {
   const [selectedBookingForRating, setSelectedBookingForRating] = useState<Booking | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'checking' | 'success' | 'failed'>('idle');
   const [paymentReference, setPaymentReference] = useState<string | null>(null);
+  
+  // Verification lock to prevent duplicate API calls
+  const verificationLockRef = useRef<Set<string>>(new Set());
+  const isVerifyingRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -74,6 +78,18 @@ export default function MyBookings() {
   useEffect(() => {
     if (!paymentReference || !user || verificationStatus !== 'checking') return;
     
+    // Prevent duplicate calls for same reference (handles React Strict Mode)
+    if (verificationLockRef.current.has(paymentReference) || isVerifyingRef.current) {
+      console.log('Verification already in progress for reference:', paymentReference);
+      return;
+    }
+    
+    // Acquire lock
+    verificationLockRef.current.add(paymentReference);
+    isVerifyingRef.current = true;
+    
+    console.log('Starting verification for reference:', paymentReference);
+    
     // Call verification endpoint
     apiRequest('POST', '/api/payments/verify-booking', { reference: paymentReference })
       .then(async (res) => {
@@ -98,14 +114,20 @@ export default function MyBookings() {
         console.error('Payment verification failed:', error);
         setVerificationStatus('failed');
         
+        // Remove from lock to allow retry
+        verificationLockRef.current.delete(paymentReference);
+        
         toast({
           title: 'Payment Verification Issue',
           description: error.message || 'We couldn\'t verify your payment automatically.',
           variant: 'destructive',
           duration: 8000,
         });
+      })
+      .finally(() => {
+        isVerifyingRef.current = false;
       });
-  }, [paymentReference, user, verificationStatus, toast]);
+  }, [paymentReference, verificationStatus, user]);
 
   // Manual retry handler
   const handleRetryVerification = () => {
