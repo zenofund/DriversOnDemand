@@ -183,8 +183,7 @@ export async function verifyDriverVerificationPayment(
       .from('drivers')
       .update({
         verified: true,
-        verification_payment_ref: reference,
-        updated_at: new Date().toISOString()
+        verification_payment_ref: reference
       })
       .eq('id', driverId);
 
