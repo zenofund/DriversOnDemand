@@ -46,6 +46,8 @@ export default function MyBookings() {
   const { user, isLoading } = useAuthStore();
   const { toast } = useToast();
   const [selectedBookingForRating, setSelectedBookingForRating] = useState<Booking | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'checking' | 'success' | 'failed'>('idle');
+  const [paymentReference, setPaymentReference] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -54,6 +56,65 @@ export default function MyBookings() {
       setLocation('/auth/login');
     }
   }, [isLoading, user, setLocation]);
+
+  // Extract payment reference from URL on mount
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const reference = searchParams.get('reference');
+    
+    if (reference) {
+      setPaymentReference(reference);
+      setVerificationStatus('checking');
+      // Remove reference from URL immediately to prevent refresh loops
+      window.history.replaceState({}, '', '/client/bookings');
+    }
+  }, []);
+
+  // Auto-verify payment when reference is extracted
+  useEffect(() => {
+    if (!paymentReference || !user || verificationStatus !== 'checking') return;
+    
+    // Call verification endpoint
+    apiRequest('/api/payments/verify-booking', {
+      method: 'POST',
+      body: JSON.stringify({ reference: paymentReference }),
+    })
+      .then((data: any) => {
+        setVerificationStatus('success');
+        
+        // Refresh bookings list
+        queryClient.invalidateQueries({ queryKey: ['/api/bookings/client'] });
+        
+        toast({
+          title: 'Payment Verified!',
+          description: data.already_processed 
+            ? 'Your booking has already been confirmed.'
+            : 'Your booking has been created successfully. The driver will be notified.',
+          duration: 5000,
+        });
+        
+        // Clear reference after success
+        setPaymentReference(null);
+      })
+      .catch((error) => {
+        console.error('Payment verification failed:', error);
+        setVerificationStatus('failed');
+        
+        toast({
+          title: 'Payment Verification Issue',
+          description: error.message || 'We couldn\'t verify your payment automatically.',
+          variant: 'destructive',
+          duration: 8000,
+        });
+      });
+  }, [paymentReference, user, verificationStatus, toast]);
+
+  // Manual retry handler
+  const handleRetryVerification = () => {
+    if (paymentReference) {
+      setVerificationStatus('checking');
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -98,6 +159,43 @@ export default function MyBookings() {
     <DashboardLayout role="client" onLogout={handleLogout}>
       <div className="container mx-auto p-6">
           <h1 className="text-3xl font-bold mb-6" data-testid="text-page-title">My Bookings</h1>
+
+          {/* Payment Verification Status */}
+          {verificationStatus === 'checking' && (
+            <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-2 w-2 bg-blue-600 rounded-full animate-pulse" />
+                  <p className="font-medium text-blue-900 dark:text-blue-100">
+                    Verifying your payment...
+                  </p>
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                  This usually takes just a few seconds
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {verificationStatus === 'failed' && paymentReference && (
+            <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-950">
+              <CardContent className="pt-6">
+                <p className="font-medium text-red-900 dark:text-red-100 mb-3">
+                  Payment verification issue
+                </p>
+                <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+                  We couldn't verify your payment automatically. This might be a temporary issue.
+                </p>
+                <Button 
+                  onClick={handleRetryVerification}
+                  variant="outline"
+                  className="border-red-300 hover:bg-red-100"
+                >
+                  Retry Verification
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {isLoading && (
             <div className="space-y-4">

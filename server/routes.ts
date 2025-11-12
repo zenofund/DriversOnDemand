@@ -1621,9 +1621,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/webhooks/paystack", async (req, res) => {
     try {
+      // Use rawBody for signature verification (not JSON.stringify)
+      const payload = req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body);
+      
       const hash = crypto
         .createHmac('sha512', PAYSTACK_SECRET)
-        .update(JSON.stringify(req.body))
+        .update(payload)
         .digest('hex');
 
       if (hash !== req.headers['x-paystack-signature']) {
@@ -1952,6 +1955,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Verification endpoint error:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Confirm booking payment (manual/auto verification after Paystack redirect)
+  app.post("/api/payments/verify-booking", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { reference } = req.body;
+
+      if (!reference || typeof reference !== 'string') {
+        return res.status(400).json({ error: "Payment reference is required" });
+      }
+
+      console.log('Manual booking payment verification requested:', reference);
+
+      // Call Paystack API to verify transaction
+      const paystackResponse = await fetch(
+        `https://api.paystack.co/transaction/verify/${reference}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${PAYSTACK_SECRET}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!paystackResponse.ok) {
+        const errorData = await paystackResponse.json().catch(() => ({}));
+        return res.status(400).json({
+          error: `Payment verification failed: ${errorData.message || paystackResponse.statusText}`
+        });
+      }
+
+      const paystackResult = await paystackResponse.json();
+
+      if (!paystackResult.status || !paystackResult.data) {
+        return res.status(400).json({ error: 'Invalid response from payment provider' });
+      }
+
+      const { data: txData } = paystackResult;
+
+      // Check if payment was successful
+      if (txData.status !== 'success') {
+        return res.status(400).json({
+          error: `Payment not successful: ${txData.status}`,
+          status: txData.status
+        });
+      }
+
+      // Validate metadata
+      if (txData.metadata?.type !== 'booking') {
+        return res.status(400).json({
+          error: 'Transaction is not a booking payment'
+        });
+      }
+
+      // Call finalization service
+      const bookingAmount = txData.amount / 100;
+      const result = await finalizeBookingFromPayment(reference, txData.metadata, bookingAmount);
+
+      if (!result.success) {
+        console.error('Booking finalization failed:', result.error);
+        return res.status(400).json({
+          error: result.error || 'Failed to create booking',
+          verified: false
+        });
+      }
+
+      // Return success with booking ID
+      res.json({
+        success: true,
+        verified: true,
+        booking_id: result.booking_id,
+        already_processed: result.already_processed,
+        message: result.already_processed 
+          ? 'Booking already created from this payment' 
+          : 'Booking created successfully!'
+      });
+    } catch (error) {
+      console.error('Booking verification endpoint error:', error);
       res.status(500).json({ error: "Server error" });
     }
   });
