@@ -28,6 +28,14 @@ export default function DriverDashboard() {
   const desiredOnlineStateRef = useRef(false); // Track what user actually wants
   const { coordinates, error: geoError, getCurrentPosition } = useGeolocation();
 
+  // Fetch driver data - must be before the redirect useEffect
+  const { data: driverData, refetch: refetchDriverData } = useQuery<Driver>({
+    queryKey: ['/api/drivers/me'],
+    enabled: !!user,
+    refetchOnWindowFocus: false,
+    refetchInterval: isWaitingForVerification ? 2000 : false, // Poll every 2 seconds when waiting
+  });
+
   useEffect(() => {
     // Wait for auth state to load before redirecting
     if (isLoading) return;
@@ -37,16 +45,17 @@ export default function DriverDashboard() {
       return;
     }
 
-    if (profile) {
-      const driver = profile as Driver;
-      
+    // Use fresh driverData instead of stale profile from auth store
+    const currentDriver = driverData || (profile as Driver);
+    
+    if (currentDriver) {
       // If waiting for verification after payment, don't redirect yet
       if (isWaitingForVerification) {
         return;
       }
       
       // Redirect unverified drivers to verification page
-      if (!driver.verified) {
+      if (!currentDriver.verified) {
         toast({
           title: 'Verification required',
           description: 'Please complete your verification to access the dashboard',
@@ -55,16 +64,9 @@ export default function DriverDashboard() {
         return;
       }
 
-      setIsOnline(driver.online_status === 'online');
+      setIsOnline(currentDriver.online_status === 'online');
     }
-  }, [isLoading, user, profile, setLocation, toast, isWaitingForVerification]);
-
-  const { data: driverData, refetch: refetchDriverData } = useQuery<Driver>({
-    queryKey: ['/api/drivers/me'],
-    enabled: !!user,
-    refetchOnWindowFocus: false,
-    refetchInterval: isWaitingForVerification ? 2000 : false, // Poll every 2 seconds when waiting
-  });
+  }, [isLoading, user, profile, driverData, setLocation, toast, isWaitingForVerification]);
 
   // Handle payment success and wait for verification
   useEffect(() => {
