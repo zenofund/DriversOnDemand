@@ -6,20 +6,23 @@ import { LocationAutocomplete } from '@/components/LocationAutocomplete';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
+import { useNINGuard } from '@/hooks/useNINGuard';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { calculateDistance } from '@/lib/distance';
-import { MapPin, Search } from 'lucide-react';
+import { MapPin, Search, Shield, AlertCircle } from 'lucide-react';
 import type { Driver } from '@shared/schema';
 
 export default function ClientDashboard() {
   const [, setLocation] = useLocation();
   const { user, isLoading } = useAuthStore();
   const { toast } = useToast();
+  const { isChecking, isVerified } = useNINGuard();
   const {
     pickupLocation,
     pickupCoords,
@@ -124,6 +127,26 @@ export default function ClientDashboard() {
     <DashboardLayout role="client" onLogout={handleLogout}>
       <div className="p-4 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto space-y-8">
+            {/* NIN Verification Banner */}
+            {!isChecking && !isVerified && (
+              <Alert variant="destructive" className="border-orange-500 bg-orange-50 dark:bg-orange-950">
+                <Shield className="h-4 w-4" />
+                <AlertDescription className="flex items-center justify-between">
+                  <span>
+                    <strong>Identity Verification Required:</strong> Please verify your NIN before booking drivers.
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLocation('/client/verify-nin')}
+                    className="ml-4"
+                  >
+                    Verify Now
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Header */}
             <div>
               <h1 className="text-3xl font-bold font-heading text-foreground">
@@ -176,10 +199,16 @@ export default function ClientDashboard() {
                   onClick={handleSearch} 
                   className="mt-6 w-full md:w-auto"
                   data-testid="button-search-drivers"
+                  disabled={!isVerified}
                 >
                   <Search className="h-4 w-4 mr-2" />
-                  Search Available Drivers
+                  {!isVerified ? 'Verify NIN to Search' : 'Search Available Drivers'}
                 </Button>
+                {!isVerified && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    You must verify your NIN before searching for drivers
+                  </p>
+                )}
               </CardContent>
             </Card>
 

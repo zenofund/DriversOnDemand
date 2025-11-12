@@ -26,6 +26,7 @@ import BookingConfirm from "@/pages/client/BookingConfirm";
 import ActiveBooking from "@/pages/client/ActiveBooking";
 import ClientChat from "@/pages/client/Chat";
 import ClientSettings from "@/pages/client/Settings";
+import VerifyNIN from "@/pages/client/VerifyNIN";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/Users";
 import AdminBookings from "@/pages/admin/Bookings";
@@ -51,6 +52,7 @@ function Router() {
       <Route path="/driver/earnings" component={Earnings} />
       <Route path="/driver/history" component={History} />
       <Route path="/driver/settings" component={DriverSettings} />
+      <Route path="/client/verify-nin" component={VerifyNIN} />
       <Route path="/client/dashboard" component={ClientDashboard} />
       <Route path="/client/booking-confirm" component={BookingConfirm} />
       <Route path="/client/active" component={ActiveBooking} />
