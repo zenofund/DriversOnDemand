@@ -215,6 +215,7 @@ export default function VerifyNIN() {
                         ref={videoRef}
                         autoPlay
                         playsInline
+                        muted
                         className="w-full"
                       />
                     </div>
