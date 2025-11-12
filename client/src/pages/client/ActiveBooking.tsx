@@ -10,14 +10,26 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, DollarSign, User, Phone, Star, MessageCircle, CheckCircle } from 'lucide-react';
+import { MapPin, Clock, DollarSign, User, Phone, Star, MessageCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { BookingWithDetails } from '@shared/schema';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 function ActiveBooking() {
   const [, setLocation] = useLocation();
   const { user, isLoading } = useAuthStore();
   const { toast } = useToast();
+  const [isDeclineDialogOpen, setIsDeclineDialogOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
 
   useEffect(() => {
     if (isLoading) return;
@@ -98,6 +110,58 @@ function ActiveBooking() {
   const handleConfirmCompletion = () => {
     if (!activeBooking) return;
     confirmCompletionMutation.mutate(activeBooking.id);
+  };
+
+  // Decline request mutation (creates dispute)
+  const declineRequestMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: string; reason: string }) => {
+      return apiRequest('POST', `/api/disputes`, {
+        booking_id: bookingId,
+        dispute_type: 'service_quality',
+        description: reason,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/client/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/client'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/disputes'] });
+      setIsDeclineDialogOpen(false);
+      setDeclineReason('');
+      toast({
+        title: 'Request Declined',
+        description: 'A dispute has been created. Our admin team will review it shortly.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to decline request',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleDeclineClick = () => {
+    setIsDeclineDialogOpen(true);
+  };
+
+  const handleConfirmDecline = () => {
+    if (!activeBooking) return;
+    const trimmedReason = declineReason.trim();
+    if (trimmedReason.length < 10) {
+      toast({
+        title: 'Reason Required',
+        description: 'Please provide a detailed reason (at least 10 characters).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    declineRequestMutation.mutate({ bookingId: activeBooking.id, reason: trimmedReason });
+  };
+
+  const handleCancelDecline = () => {
+    setIsDeclineDialogOpen(false);
+    setDeclineReason('');
   };
 
   const handleChat = () => {
@@ -252,7 +316,7 @@ function ActiveBooking() {
                           <MessageCircle className="h-4 w-4 mr-2" />
                           Chat
                         </Button>
-                        {!activeBooking.client_confirmed && (
+                        {!activeBooking.client_confirmed && !activeBooking.driver_confirmed && (
                           <Button
                             size="sm"
                             onClick={handleConfirmCompletion}
@@ -263,6 +327,29 @@ function ActiveBooking() {
                             <CheckCircle className="h-4 w-4 mr-2" />
                             {confirmCompletionMutation.isPending ? 'Confirming...' : 'Complete Request'}
                           </Button>
+                        )}
+                        {!activeBooking.client_confirmed && activeBooking.driver_confirmed && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={handleConfirmCompletion}
+                              disabled={confirmCompletionMutation.isPending || declineRequestMutation.isPending}
+                              className="bg-green-600 hover:bg-green-700"
+                              data-testid="button-approve"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              {confirmCompletionMutation.isPending ? 'Approving...' : 'Approve Request'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={handleDeclineClick}
+                              disabled={confirmCompletionMutation.isPending || declineRequestMutation.isPending}
+                              data-testid="button-decline"
+                            >
+                              Decline Request
+                            </Button>
+                          </>
                         )}
                       </div>
                     )}
@@ -338,6 +425,55 @@ function ActiveBooking() {
             </div>
           )}
         </div>
+
+        {/* Decline Confirmation Dialog */}
+        <Dialog open={isDeclineDialogOpen} onOpenChange={setIsDeclineDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                Decline Completion Request
+              </DialogTitle>
+              <DialogDescription>
+                This will create a dispute and notify our admin team for review. Please provide a detailed reason.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="decline-reason">
+                  Reason for declining <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="decline-reason"
+                  placeholder="Please explain why you're declining this completion request... (minimum 10 characters)"
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  className="min-h-[120px]"
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {declineReason.trim().length}/500 characters (minimum 10 required)
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={handleCancelDecline}
+                disabled={declineRequestMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDecline}
+                disabled={declineRequestMutation.isPending || declineReason.trim().length < 10}
+              >
+                {declineRequestMutation.isPending ? 'Creating Dispute...' : 'Confirm Decline'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </DashboardLayout>
   );
 }

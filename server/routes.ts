@@ -2864,6 +2864,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Booking not found" });
       }
 
+      // Check for open disputes
+      const { data: openDisputes } = await supabase
+        .from('disputes')
+        .select('id, status')
+        .eq('booking_id', bookingId)
+        .eq('status', 'open');
+
+      if (openDisputes && openDisputes.length > 0) {
+        return res.status(400).json({ 
+          error: "Cannot approve completion while dispute is open. Please wait for admin review." 
+        });
+      }
+
       // Update client confirmation
       await supabase
         .from('bookings')
