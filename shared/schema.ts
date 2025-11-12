@@ -452,3 +452,84 @@ export type DisputeWithDetails = Dispute & {
   reported_by?: Driver | Client;
   resolved_by_user?: AdminUser;
 };
+
+// ============================================================================
+// EMAIL SCHEMAS
+// ============================================================================
+
+export const EmailStatus = {
+  QUEUED: 'queued',
+  SENT: 'sent',
+  DELIVERED: 'delivered',
+  BOUNCED: 'bounced',
+  COMPLAINED: 'complained',
+  FAILED: 'failed',
+} as const;
+
+export const EmailType = {
+  NIN_VERIFICATION_APPROVED: 'nin_verification_approved',
+  NIN_VERIFICATION_REJECTED: 'nin_verification_rejected',
+  NIN_VERIFICATION_LOCKED: 'nin_verification_locked',
+  BOOKING_CONFIRMATION: 'booking_confirmation',
+  BOOKING_DRIVER_ASSIGNED: 'booking_driver_assigned',
+  BOOKING_TRIP_STARTED: 'booking_trip_started',
+  BOOKING_TRIP_COMPLETED: 'booking_trip_completed',
+  PAYMENT_RECEIPT: 'payment_receipt',
+  PAYMENT_PAYOUT: 'payment_payout',
+  ADMIN_ALERT: 'admin_alert',
+} as const;
+
+export const emailLogSchema = z.object({
+  id: z.string().uuid(),
+  resend_email_id: z.string().nullable(),
+  to_email: z.string().email(),
+  to_name: z.string().nullable(),
+  email_type: z.enum([
+    EmailType.NIN_VERIFICATION_APPROVED,
+    EmailType.NIN_VERIFICATION_REJECTED,
+    EmailType.NIN_VERIFICATION_LOCKED,
+    EmailType.BOOKING_CONFIRMATION,
+    EmailType.BOOKING_DRIVER_ASSIGNED,
+    EmailType.BOOKING_TRIP_STARTED,
+    EmailType.BOOKING_TRIP_COMPLETED,
+    EmailType.PAYMENT_RECEIPT,
+    EmailType.PAYMENT_PAYOUT,
+    EmailType.ADMIN_ALERT,
+  ]),
+  subject: z.string(),
+  template_data: z.record(z.any()).nullable(),
+  status: z.enum([
+    EmailStatus.QUEUED,
+    EmailStatus.SENT,
+    EmailStatus.DELIVERED,
+    EmailStatus.BOUNCED,
+    EmailStatus.COMPLAINED,
+    EmailStatus.FAILED,
+  ]),
+  sent_at: z.string().nullable(),
+  delivered_at: z.string().nullable(),
+  opened_at: z.string().nullable(),
+  clicked_at: z.string().nullable(),
+  bounced_at: z.string().nullable(),
+  complained_at: z.string().nullable(),
+  error_message: z.string().nullable(),
+  retry_count: z.number().int(),
+  user_id: z.string().uuid().nullable(),
+  booking_id: z.string().uuid().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const emailEventSchema = z.object({
+  id: z.string().uuid(),
+  email_log_id: z.string().uuid().nullable(),
+  resend_email_id: z.string(),
+  event_type: z.string(),
+  event_data: z.record(z.any()).nullable(),
+  occurred_at: z.string(),
+  received_at: z.string(),
+  created_at: z.string(),
+});
+
+export type EmailLog = z.infer<typeof emailLogSchema>;
+export type EmailEvent = z.infer<typeof emailEventSchema>;
