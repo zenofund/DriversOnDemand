@@ -89,6 +89,28 @@ The platform includes comprehensive features such as:
 
 **Workflow:** Client signup → Redirect to NIN verification → Enter 11-digit NIN → Capture selfie → YouVerify validation → Verified status → Booking access enabled
 
+### Admin NIN Verification Review UI Implemented:
+**Admin Feature:** Complete admin panel interface for manually reviewing and approving/rejecting locked NIN verification accounts. Completes the NIN verification workflow by allowing admin intervention when clients are locked after 3 failed attempts.
+
+**Key Components:**
+1. **Backend Endpoints (server/routes.ts):**
+   - `GET /api/admin/nin-verifications/pending`: Fetches all clients with 'locked' or 'pending_manual' verification states with latest verification attempt details
+   - `POST /api/admin/nin-verifications/:id/review`: Approve/reject verification with admin notes, updates client state, logs audit events
+
+2. **Frontend Admin Page (client/src/pages/admin/NINVerifications.tsx):**
+   - Search and filter by client name, email, or phone
+   - Stats cards showing total pending, locked accounts, and manual reviews
+   - Table view with client info, status badges, attempt counters, confidence scores
+   - Review modal with comprehensive verification details and admin notes textarea
+   - Approve/Reject actions with React Query mutations and toast notifications
+
+3. **Navigation Integration:**
+   - Route `/admin/nin-verifications` added to App.tsx
+   - "NIN Verifications" link in admin sidebar with ShieldCheck icon
+   - Auto-refresh every 30 seconds for real-time updates
+
+**Admin Workflow:** Admin logs in → Clicks "NIN Verifications" → Reviews locked accounts → Opens client detail modal → Reviews verification info and failure reasons → Adds admin notes → Approves (sets verified) or Rejects (keeps locked, resets attempts) → Audit logged
+
 ## Previous Changes (November 11, 2025)
 
 ### Critical Bug Fixes Implemented:
