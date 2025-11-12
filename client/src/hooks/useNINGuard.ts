@@ -12,7 +12,7 @@ export function useNINGuard() {
   const [, navigate] = useLocation();
   const { role } = useAuthStore();
   const [isChecking, setIsChecking] = useState(true);
-  const [isVerified, setIsVerified] = useState(false);
+  const [isVerified, setIsVerified] = useState(true); // TEMPORARILY SET TO TRUE FOR TESTING
 
   useEffect(() => {
     const checkVerification = async () => {
@@ -21,6 +21,11 @@ export function useNINGuard() {
         return;
       }
 
+      // TEMPORARILY DISABLED: NIN verification requirement
+      // This allows clients to test booking features without verification
+      // To re-enable: uncomment the code below and set isVerified default to false
+      
+      /*
       try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -47,6 +52,9 @@ export function useNINGuard() {
       } finally {
         setIsChecking(false);
       }
+      */
+      
+      setIsChecking(false);
     };
 
     checkVerification();
