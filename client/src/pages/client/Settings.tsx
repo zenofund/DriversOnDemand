@@ -101,7 +101,7 @@ export default function ClientSettings() {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileUpdate) => {
-      const response = await apiRequest('PATCH', '/api/clients/me', data);
+      const response = await apiRequest('PATCH', '/api/clients/profile', data);
       return response.json();
     },
     onSuccess: () => {

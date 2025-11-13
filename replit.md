@@ -43,6 +43,7 @@ Draba is a production-ready, full-stack platform connecting clients with verifie
 - **Enhanced Upload Error Messages**: Profile picture upload now shows detailed error messages instead of generic "Failed to upload image"
 - **Dashboard Responsiveness**: Refactored all 18 dashboard pages to use Shadcn sidebar primitives with mobile-first design - sidebar hidden on mobile (<1024px) with hamburger toggle, persistent on desktop (≥1024px)
 - **Ratings System Fix**: Added `rater_role: 'client'` field to POST /api/ratings endpoint to comply with database schema updates from migration 009
+- **Client Profile Update Fix**: Corrected API endpoint from PATCH `/api/clients/me` to PATCH `/api/clients/profile` in Settings page, fixing "Unexpected token '<!DOCTYPE'" JSON parsing error caused by hitting non-existent endpoint
 - **Missing Package Fix**: Installed svix package dependency for email webhook signature verification
 
 ### November 12, 2025
