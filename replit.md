@@ -3,6 +3,34 @@
 ## Overview
 Draba is a production-ready, full-stack platform connecting clients with verified professional drivers in real-time. It features role-based dashboards for drivers, clients, and administrators, offering real-time updates, secure payment processing, and location-based driver search. The project aims to provide a seamless and efficient booking experience, leveraging modern web technologies for scalability and reliability.
 
+<<<<<<< HEAD
+## Recent Changes (November 13, 2025)
+- **Driver Metrics Critical Bug Fixes**: Fixed two major bugs preventing accurate driver stats in discovery view
+  - **total_trips Counter**: Now properly increments when bookings are completed (was always showing 0)
+  - **Rating Calculation**: Fixed to only include client→driver ratings (was incorrectly mixing driver→client ratings from 2-way rating system)
+  - Impact: Driver discovery now shows accurate trip counts and ratings
+- **Pending Earnings Data Structure Fix**: Updated Earnings page frontend to correctly consume backend API response structure, fixing ₦0 display bug
+- **Driver History Page Crash Fix**: Added null safety for total_fare field preventing "Cannot read properties of undefined" error
+- **Missing Import Fix**: Added CheckCircle icon import to DriverDashboard preventing LSP errors
+- **Database Migration 010 (⚠️ PENDING MANUAL APPLICATION)**: Created migration to add `driver_confirmed_at` and `client_confirmed_at` TIMESTAMPTZ columns to bookings table with partial indexes for performance optimization
+- **Client Approval/Decline UI Implementation**: Added "Approve Request" (green) and "Decline Request" (red) buttons to client MyBookings page, visible when driver confirms completion but client hasn't
+- **Dispute Dialog Integration**: Decline button opens modal requiring minimum 10-character reason, which creates service_quality dispute via `/api/disputes` endpoint
+- **Approval Payment Flow**: Approve button triggers `/api/bookings/:id/client-confirm` endpoint to set client_confirmed_at timestamp and process payment
+- **Chat Button Fix**: Verified chat button is properly visible for accepted/ongoing bookings, routing to `/client/chat/:bookingId`
+- **Button Visibility Logic**: Approve/Decline buttons show when `driver_confirmed && !client_confirmed`, implementing driver-first completion workflow
+- **Review Button Gating**: "Review Driver" button appears only after both parties confirm completion (`client_confirmed && driver_confirmed`)
+- **Rating System Fix**: Fixed POST /api/ratings 500 errors by updating booking_status to 'completed' when both parties confirm, enabling rating submission
+- **Rater Role Field Implementation**: Added rater_role='client' to ratings insertion, resolving NOT NULL constraint violation from migration 009's 2-way rating schema
+- **Duplicate Rating Check Update**: Modified existing rating check to include rater_role field, allowing both client and driver to rate the same booking independently
+- **Confirmation Timestamp Tracking**: Both driver-confirm and client-confirm endpoints now populate driver_confirmed_at and client_confirmed_at timestamp columns for audit trail
+- **Enhanced Error Logging**: Added console.error logging to ratings endpoint for better debugging of future issues
+- **Booking Status Automation**: When either party is the second to confirm, booking_status automatically changes from 'ongoing' to 'completed', triggering payment processing
+- **Toast Notification System Upgrade**: Redesigned minimal toast notifications with 3-second auto-dismiss, backdrop blur, success/error variants, and modern styling
+- **Profile Picture Upload Fix (⚠️ REQUIRES STORAGE SETUP)**: Created migration 011 to set up Supabase Storage bucket for profile pictures with proper RLS policies. User must run this migration in Supabase SQL Editor - see SETUP_PROFILE_PICTURES.md for 2-minute setup guide
+- **Enhanced Upload Error Messages**: Profile picture upload now shows detailed error messages instead of generic "Failed to upload image"
+
+## Previous Changes (November 12, 2025)
+=======
 ## Recent Changes
 
 ### November 13, 2025
@@ -12,6 +40,7 @@ Draba is a production-ready, full-stack platform connecting clients with verifie
 - **Missing Package Fix**: Installed svix package dependency for email webhook signature verification
 
 ### November 12, 2025
+>>>>>>> 57ccc5de89d8aa1999de5d046844d7da0ea91b3b
 - **Booking Completion UX Enhancement**: Added "Complete Request" buttons for both drivers and clients on accepted/ongoing trips, allowing early trip completion
 - **Review Button Implementation**: Added "Review Driver" button on client's My Bookings page, visible only after both parties confirm trip completion
 - **Button Placement Optimization**: Reorganized Chat and Complete Request buttons to appear together for better UX consistency
@@ -23,6 +52,11 @@ Draba is a production-ready, full-stack platform connecting clients with verifie
 - **Dispute System Integration**: Clients can decline completion with a required reason (min 10 chars), creating a service quality dispute that prevents payment finalization
 - **12-Hour Auto-Complete Worker**: Background job runs every 15 minutes, automatically confirms client-side completion for bookings where driver confirmed >12 hours ago (skips disputed bookings), then triggers payment processing
 - **Payment Blocking During Disputes**: Backend `/api/bookings/:id/client-confirm` endpoint checks for open disputes and blocks payment processing until dispute is resolved
+- **Driver Navigation Maps**: Embedded Google Maps on Active Bookings page showing driver location (blue), pickup (green), destination (red) with route visualization
+- **Context-Aware Route Display**: RouteMap component switches between driver→pickup (accepted status) and driver→destination (ongoing status) automatically
+- **Navigation Buttons**: One-tap Google Maps deep linking for turn-by-turn navigation to pickup or destination based on booking status
+- **Real-time ETA Calculation**: Live distance and traffic-aware ETA updates every minute, showing km distance and time remaining to next waypoint
+- **Google Maps API Fix**: Resolved "google.maps.importLibrary is not installed" error by migrating from Loader class to modern setOptions + importLibrary pattern, with proper cancellation handling and cleanup in React components
 
 ## User Preferences
 I prefer clear, concise explanations and an iterative development approach. Please ask before implementing major changes or making significant architectural decisions. I value detailed explanations when new features or complex logic are introduced. I also want to make sure the agent does not make changes to the existing folder structure unless explicitly asked.

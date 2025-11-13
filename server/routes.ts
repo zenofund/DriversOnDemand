@@ -2378,15 +2378,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Can only rate completed bookings" });
       }
 
-      // Check if rating already exists
+      // Check if rating already exists for this client
       const { data: existingRating } = await supabase
         .from('ratings')
         .select('id')
         .eq('booking_id', booking_id)
+        .eq('rater_role', 'client')
         .single();
 
       if (existingRating) {
-        return res.status(400).json({ error: "This booking has already been rated" });
+        return res.status(400).json({ error: "You have already rated this booking" });
       }
 
       // Insert rating
@@ -2396,6 +2397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           booking_id,
           client_id: client.id,
           driver_id: booking.driver_id,
+          rater_role: 'client',
           rating,
           review: review || null,
           rater_role: 'client',
@@ -2405,11 +2407,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (error) throw error;
 
-      // Update driver's average rating
+      // Update driver's average rating (only from client ratings)
       const { data: driverRatings } = await supabase
         .from('ratings')
         .select('rating')
-        .eq('driver_id', booking.driver_id);
+        .eq('driver_id', booking.driver_id)
+        .eq('rater_role', 'client');
 
       if (driverRatings && driverRatings.length > 0) {
         const avgRating = driverRatings.reduce((sum, r) => sum + r.rating, 0) / driverRatings.length;
@@ -2422,7 +2425,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(newRating);
     } catch (error) {
+<<<<<<< HEAD
+      console.error('[Ratings] Error creating rating:', error);
+=======
       console.error('[POST /api/ratings] Error:', error);
+>>>>>>> 57ccc5de89d8aa1999de5d046844d7da0ea91b3b
       res.status(500).json({ error: "Server error" });
     }
   });
@@ -2527,11 +2534,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (error) throw error;
 
-      // Recalculate driver's average rating
+      // Recalculate driver's average rating (only from client ratings)
       const { data: driverRatings } = await supabase
         .from('ratings')
         .select('rating')
-        .eq('driver_id', existingRating.driver_id);
+        .eq('driver_id', existingRating.driver_id)
+        .eq('rater_role', 'client');
 
       if (driverRatings && driverRatings.length > 0) {
         const avgRating = driverRatings.reduce((sum, r) => sum + r.rating, 0) / driverRatings.length;
@@ -2792,13 +2800,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update driver confirmation
+      const updateData: any = {
+        driver_confirmed: true,
+        driver_confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // If both parties have confirmed, mark booking as completed
+      if (booking.client_confirmed) {
+        updateData.booking_status = 'completed';
+      }
+
       await supabase
         .from('bookings')
-        .update({
-          driver_confirmed: true,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', bookingId);
+
+      // Increment driver's total_trips when booking is completed
+      if (booking.client_confirmed) {
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('total_trips')
+          .eq('id', driver.id)
+          .single();
+        
+        if (driverData) {
+          await supabase
+            .from('drivers')
+            .update({ total_trips: (driverData.total_trips || 0) + 1 })
+            .eq('id', driver.id);
+        }
+      }
 
       // Check if both confirmed
       if (booking.client_confirmed) {
@@ -2880,13 +2912,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update client confirmation
+      const updateData: any = {
+        client_confirmed: true,
+        client_confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // If both parties have confirmed, mark booking as completed
+      if (booking.driver_confirmed) {
+        updateData.booking_status = 'completed';
+      }
+
       await supabase
         .from('bookings')
-        .update({
-          client_confirmed: true,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', bookingId);
+
+      // Increment driver's total_trips when booking is completed
+      if (booking.driver_confirmed) {
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('total_trips')
+          .eq('id', booking.driver_id)
+          .single();
+        
+        if (driverData) {
+          await supabase
+            .from('drivers')
+            .update({ total_trips: (driverData.total_trips || 0) + 1 })
+            .eq('id', booking.driver_id);
+        }
+      }
 
       // Check if both confirmed
       if (booking.driver_confirmed) {
