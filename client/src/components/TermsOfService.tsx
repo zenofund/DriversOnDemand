@@ -402,8 +402,8 @@ export function TermsOfService({ trigger, triggerClassName }: TermsOfServiceProp
               <div className="ml-4 space-y-1">
                 <p><strong>Draba</strong></p>
                 <p>Operated by: Zichlu Motors</p>
-                <p>Email: support@draba.ng</p>
-                <p>Nigeria</p>
+                <p>Email: support@draba.app</p>
+                <p>Abuja, Nigeria</p>
               </div>
             </section>
 

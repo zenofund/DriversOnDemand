@@ -125,7 +125,7 @@ export default function Landing() {
               </div>
               <h3 className="text-base sm:text-lg font-semibold mb-2">Verified & Secure</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                All drivers are verified professionals. Pay securely with Paystack - held in escrow until trip completion.
+                All drivers are verified professionals. Pay securely with online - held in escrow until trip completion.
               </p>
             </Card>
 

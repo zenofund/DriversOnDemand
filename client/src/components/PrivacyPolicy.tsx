@@ -60,8 +60,8 @@ export function PrivacyPolicy({ trigger, triggerClassName }: PrivacyPolicyProps)
               <div className="space-y-2">
                 <p><strong>Company:</strong> Zichlu Motors</p>
                 <p><strong>Platform:</strong> Draba</p>
-                <p><strong>Email:</strong> privacy@draba.ng</p>
-                <p><strong>Address:</strong> Lagos, Nigeria</p>
+                <p><strong>Email:</strong> privacy@draba.app</p>
+                <p><strong>Address:</strong> Abuja, Nigeria</p>
                 <p>
                   For privacy-related inquiries, data access requests, or concerns, please contact us using the information above.
                 </p>
@@ -415,11 +415,11 @@ export function PrivacyPolicy({ trigger, triggerClassName }: PrivacyPolicyProps)
                   If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us:
                 </p>
                 <div className="mt-3 space-y-1">
-                  <p><strong>Email:</strong> privacy@draba.ng</p>
-                  <p><strong>Support:</strong> support@draba.ng</p>
+                  <p><strong>Email:</strong> privacy@draba.app</p>
+                  <p><strong>Support:</strong> support@draba.app</p>
                   <p><strong>Company:</strong> Zichlu Motors</p>
                   <p><strong>Platform:</strong> Draba</p>
-                  <p><strong>Address:</strong> Lagos, Nigeria</p>
+                  <p><strong>Address:</strong> Abuja, Nigeria</p>
                 </div>
                 <p className="mt-3">
                   We will respond to your inquiry within 30 days.
