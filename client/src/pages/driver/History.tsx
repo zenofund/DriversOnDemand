@@ -194,7 +194,7 @@ export default function History() {
                           <div className="text-right">
                             <p className="text-xs text-muted-foreground">Fare</p>
                             <p className="text-lg font-bold">
-                              ₦{booking.total_fare.toLocaleString()}
+                              ₦{(booking.total_fare ?? 0).toLocaleString()}
                             </p>
                           </div>
                         </div>
