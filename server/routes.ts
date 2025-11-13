@@ -2400,7 +2400,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rater_role: 'client',
           rating,
           review: review || null,
-          rater_role: 'client',
         }])
         .select()
         .single();
@@ -2425,11 +2424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(newRating);
     } catch (error) {
-<<<<<<< HEAD
       console.error('[Ratings] Error creating rating:', error);
-=======
-      console.error('[POST /api/ratings] Error:', error);
->>>>>>> 57ccc5de89d8aa1999de5d046844d7da0ea91b3b
       res.status(500).json({ error: "Server error" });
     }
   });
