@@ -3870,6 +3870,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (error) throw error;
 
+      // Send notification to recipient (other participant in the booking)
+      try {
+        // Determine recipient
+        const recipientUserId = senderRole === 'client' 
+          ? (await supabase.from('drivers').select('user_id').eq('id', booking.driver_id).single()).data?.user_id
+          : (await supabase.from('clients').select('user_id').eq('id', booking.client_id).single()).data?.user_id;
+        
+        if (recipientUserId) {
+          // Get sender name
+          const senderName = senderRole === 'client'
+            ? client ? (await supabase.from('clients').select('full_name').eq('id', client.id).single()).data?.full_name : 'User'
+            : driver ? (await supabase.from('drivers').select('full_name').eq('id', driver.id).single()).data?.full_name : 'User';
+
+          const template = NotificationTemplates.messageReceived(senderName || 'User');
+          await sendNotification({
+            userId: recipientUserId,
+            type: 'message_received',
+            title: template.title,
+            message: template.message,
+            data: {
+              booking_id,
+              sender_role: senderRole,
+              message_id: newMessage.id,
+            },
+          });
+        }
+      } catch (notificationError) {
+        console.error('Failed to send new message notification:', notificationError);
+        // Don't fail the message send if notification fails
+      }
+
       res.json(newMessage);
     } catch (error) {
       res.status(500).json({ error: "Server error" });
