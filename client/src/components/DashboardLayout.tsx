@@ -27,7 +27,7 @@ export function DashboardLayout({ role, onLogout, onToggleOnline, isOnline, chil
         />
         
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between p-4 border-b bg-background sticky top-0 z-10 lg:hidden">
+          <header className="flex items-center justify-between p-4 border-b bg-background sticky top-0 z-10">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ThemeToggle />
           </header>
