@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
@@ -346,14 +345,16 @@ export default function Settings() {
       role="driver" 
       onLogout={handleLogout}
     >
-      <div className="container mx-auto p-6 max-w-4xl">
-          <div className="space-y-6">
-            {/* Header */}
-            <div>
-              <h1 className="text-3xl font-bold mb-6" data-testid="text-page-title">
-                Settings
-              </h1>
-            </div>
+      <div className="container mx-auto p-4 sm:p-6 max-w-4xl space-y-6">
+        {/* Header */}
+        <div className="mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-page-title">
+            Settings
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your profile, payments, and preferences
+          </p>
+        </div>
 
             {/* Profile Picture */}
             <Card>
@@ -452,8 +453,6 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            <Separator />
-
             {/* Location */}
             <Card>
               <CardHeader>
@@ -515,8 +514,6 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
-
-            <Separator />
 
             {/* Bank Account */}
             <Card>
@@ -587,8 +584,6 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            <Separator />
-
             {/* Password Change */}
             <Card>
               <CardHeader>
@@ -637,8 +632,6 @@ export default function Settings() {
                 </form>
               </CardContent>
             </Card>
-
-            <Separator />
 
             {/* Notification Preferences */}
             <Card>
@@ -721,8 +714,7 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </div>
+      </div>
     </DashboardLayout>
   );
 }
