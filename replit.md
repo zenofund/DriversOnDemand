@@ -44,6 +44,7 @@ Draba is a production-ready, full-stack platform connecting clients with verifie
 - **Dashboard Responsiveness**: Refactored all 18 dashboard pages to use Shadcn sidebar primitives with mobile-first design - sidebar hidden on mobile (<1024px) with hamburger toggle, persistent on desktop (≥1024px)
 - **Ratings System Fix**: Added `rater_role: 'client'` field to POST /api/ratings endpoint to comply with database schema updates from migration 009
 - **Client Profile Update Fix**: Corrected API endpoint from PATCH `/api/clients/me` to PATCH `/api/clients/profile` in Settings page, fixing "Unexpected token '<!DOCTYPE'" JSON parsing error caused by hitting non-existent endpoint
+- **Driver Profile Picture Upload Fix**: Added missing `profile_picture_url` field to `updateDriverProfileSchema` and driver profile endpoint, enabling profile picture uploads for drivers (previously only worked for clients)
 - **Missing Package Fix**: Installed svix package dependency for email webhook signature verification
 
 ### November 12, 2025

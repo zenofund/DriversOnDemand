@@ -231,6 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (validated.phone !== undefined) allowedUpdates.phone = validated.phone;
       if (validated.license_no !== undefined) allowedUpdates.license_no = validated.license_no;
       if (validated.hourly_rate !== undefined) allowedUpdates.hourly_rate = validated.hourly_rate;
+      if (validated.profile_picture_url !== undefined) allowedUpdates.profile_picture_url = validated.profile_picture_url;
 
       if (Object.keys(allowedUpdates).length === 0) {
         return res.status(400).json({ error: "No valid fields to update" });

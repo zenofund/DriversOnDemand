@@ -78,6 +78,7 @@ export const updateDriverProfileSchema = z.object({
   phone: z.string().min(10, "Valid phone number required").optional(),
   license_no: z.string().min(5, "Valid license number required").optional(),
   hourly_rate: z.number().positive("Hourly rate must be positive").optional(),
+  profile_picture_url: z.string().nullable().optional(),
 });
 
 export const updateDriverBankSchema = z.object({
