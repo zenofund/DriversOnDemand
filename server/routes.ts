@@ -683,6 +683,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get active booking for client (single active booking)
+  app.get("/api/bookings/client/active", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Get client profile
+      const { data: client } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) {
+        return res.status(403).json({ error: "Only clients can access this endpoint" });
+      }
+
+      // Get active booking for this client with driver details
+      const { data: booking, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          driver:drivers(full_name, phone, rating, profile_picture_url)
+        `)
+        .eq('client_id', client.id)
+        .in('booking_status', ['pending', 'accepted', 'ongoing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching client active booking:', error);
+        return res.status(500).json({ error: "Failed to fetch active booking" });
+      }
+
+      res.json(booking);
+    } catch (error) {
+      console.error('Server error:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Get active bookings for driver
   app.get("/api/bookings/active", async (req, res) => {
     try {
