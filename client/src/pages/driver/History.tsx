@@ -14,15 +14,16 @@ import { coerceAmount, formatNaira } from '@/lib/currency';
 interface Booking {
   id: number;
   client_id: number;
-  pickup_location: any;
-  dropoff_location: any;
+  start_location: string;
+  destination: string;
   booking_status: string;
   payment_status: string;
   total_fare: number;
+  total_cost: number;
   created_at: string;
   scheduled_time?: string;
   client: {
-    name: string;
+    full_name: string;
     phone: string;
   };
 }
@@ -78,7 +79,7 @@ export default function History() {
 
   const totalEarned = bookings
     .filter(b => b.booking_status === 'completed')
-    .reduce((sum, b) => sum + coerceAmount(b.total_fare), 0);
+    .reduce((sum, b) => sum + coerceAmount(b.total_fare || b.total_cost), 0);
 
   const completedCount = bookings.filter(b => b.booking_status === 'completed').length;
   const cancelledCount = bookings.filter(b => b.booking_status === 'cancelled').length;
@@ -195,7 +196,7 @@ export default function History() {
                           <div className="text-right">
                             <p className="text-xs text-muted-foreground">Fare</p>
                             <p className="text-lg font-bold">
-                              {formatNaira(booking.total_fare)}
+                              {formatNaira(booking.total_fare || booking.total_cost)}
                             </p>
                           </div>
                         </div>
@@ -204,20 +205,20 @@ export default function History() {
                           <div className="flex gap-2 text-sm">
                             <User className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                             <span className="text-muted-foreground">Client:</span>
-                            <span className="font-medium">{booking.client.name}</span>
+                            <span className="font-medium">{booking.client?.full_name || 'Unknown'}</span>
                           </div>
                           <div className="flex gap-2 text-sm">
                             <MapPin className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
                               <span className="text-muted-foreground">From: </span>
-                              <span>{booking.pickup_location?.address || 'N/A'}</span>
+                              <span>{booking.start_location || 'N/A'}</span>
                             </div>
                           </div>
                           <div className="flex gap-2 text-sm">
                             <MapPin className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
                               <span className="text-muted-foreground">To: </span>
-                              <span>{booking.dropoff_location?.address || 'N/A'}</span>
+                              <span>{booking.destination || 'N/A'}</span>
                             </div>
                           </div>
                         </div>
