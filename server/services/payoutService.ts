@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendNotification, NotificationTemplates } from './notificationService';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -209,6 +210,33 @@ export async function processDriverPayout(
       .from('transactions')
       .update({ settled: true })
       .in('id', transactionIds);
+
+    // Send payment received notification to driver
+    try {
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('user_id')
+        .eq('id', driverId)
+        .single();
+      
+      if (driver?.user_id) {
+        const template = NotificationTemplates.paymentReceived(settlements.total_pending);
+        await sendNotification({
+          userId: driver.user_id,
+          type: 'payment_received',
+          title: template.title,
+          message: template.message,
+          data: { 
+            payout_id: payout.id,
+            amount: settlements.total_pending,
+            transaction_count: settlements.transaction_count,
+          },
+        });
+      }
+    } catch (notificationError) {
+      console.error('Failed to send payment received notification:', notificationError);
+      // Don't fail the payout if notification fails
+    }
 
     return { success: true, payout_id: payout.id };
   } catch (error) {
