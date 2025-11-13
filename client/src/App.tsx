@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { useOneSignal } from "@/hooks/useOneSignal";
 
 // Pages
 import Landing from "@/pages/Landing";
@@ -77,6 +78,9 @@ function Router() {
 
 function App() {
   const { setUser, setRole, setProfile, setIsLoading } = useAuthStore();
+  
+  // Initialize OneSignal for push notifications
+  useOneSignal();
 
   const fetchProfile = async (user: any, accessToken: string) => {
     const role = user.user_metadata?.role;
