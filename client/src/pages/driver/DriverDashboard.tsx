@@ -177,6 +177,13 @@ export default function DriverDashboard() {
     refetchOnWindowFocus: false,
   });
 
+  const { data: bookingHistory = [] } = useQuery<any[]>({
+    queryKey: ['/api/bookings/history'],
+    enabled: !!user,
+  });
+
+  const totalCompletedTrips = bookingHistory.filter(b => b.booking_status === 'completed').length;
+
   const updateLocationMutation = useMutation({
     mutationFn: async (location: { lat: number; lng: number }) => {
       const response = await apiRequest('PATCH', '/api/drivers/location', location);
@@ -512,8 +519,8 @@ export default function DriverDashboard() {
               />
               <StatCard
                 icon={Clock}
-                label="Total Trips"
-                value={driver.total_trips || 0}
+                label="Total Trips Completed"
+                value={totalCompletedTrips}
               />
             </div>
 
