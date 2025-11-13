@@ -31,6 +31,9 @@ import { ninVerificationService } from './services/ninVerificationService';
 import { sendEmail, emailTemplates } from './services/emailService';
 import { EmailType } from '../shared/schema';
 
+// Notification service
+import { sendNotification, NotificationTemplates } from './services/notificationService';
+
 // Paystack verification service
 import { verifyDriverVerificationPayment } from './services/paystackService';
 
@@ -857,10 +860,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Only drivers can accept bookings" });
       }
 
-      // Verify driver owns this booking and it's in pending status
+      // Verify driver owns this booking and it's in pending status - fetch with client/driver details for notifications
       const { data: booking, error: fetchError } = await supabase
         .from('bookings')
-        .select('id, booking_status, driver_id')
+        .select(`
+          id, 
+          booking_status, 
+          driver_id, 
+          client_id,
+          driver:drivers(id, full_name, user_id),
+          client:clients(id, full_name, user_id)
+        `)
         .eq('id', id)
         .single();
 
@@ -888,6 +898,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (error) {
         return res.status(500).json({ error: "Failed to accept booking" });
+      }
+
+      // Send notification to client after successful acceptance
+      try {
+        const driverName = (booking.driver as any)?.full_name || 'Driver';
+        const clientUserId = (booking.client as any)?.user_id;
+        
+        if (clientUserId) {
+          const template = NotificationTemplates.bookingAccepted(driverName);
+          await sendNotification({
+            userId: clientUserId,
+            type: 'booking_accepted',
+            title: template.title,
+            message: template.message,
+            data: { booking_id: id },
+          });
+        }
+      } catch (notificationError) {
+        console.error('Failed to send booking acceptance notification:', notificationError);
       }
 
       res.json(data);
@@ -925,10 +954,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Only drivers can reject bookings" });
       }
 
-      // Verify driver owns this booking and it's in pending status
+      // Verify driver owns this booking and it's in pending status - fetch with client details for notifications
       const { data: booking, error: fetchError } = await supabase
         .from('bookings')
-        .select('id, booking_status, driver_id, payment_status, client_id')
+        .select(`
+          id, 
+          booking_status, 
+          driver_id, 
+          payment_status, 
+          client_id,
+          client:clients(id, full_name, user_id)
+        `)
         .eq('id', id)
         .single();
 
@@ -982,6 +1018,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`Booking ${id} rejected by driver ${driver.id}. Payment status: ${booking.payment_status}`);
+
+      // Send notification to client after successful rejection
+      try {
+        const clientUserId = (booking.client as any)?.user_id;
+        
+        if (clientUserId) {
+          const template = NotificationTemplates.bookingCancelled('driver');
+          await sendNotification({
+            userId: clientUserId,
+            type: 'booking_cancelled',
+            title: template.title,
+            message: template.message,
+            data: { booking_id: id, payment_status: booking.payment_status },
+          });
+        }
+      } catch (notificationError) {
+        console.error('Failed to send booking rejection notification:', notificationError);
+      }
 
       const responseMessage = booking.payment_status === 'paid' 
         ? "Booking rejected. Refund will be processed by admin within 24 hours."
@@ -3082,10 +3136,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { id: bookingId } = req.params;
 
-      // Verify booking belongs to driver
+      // Verify booking belongs to driver - fetch with client/driver details for notifications
       const { data: booking } = await supabase
         .from('bookings')
-        .select('*')
+        .select(`
+          *,
+          driver:drivers(id, full_name, user_id),
+          client:clients(id, full_name, user_id)
+        `)
         .eq('id', bookingId)
         .eq('driver_id', driver.id)
         .single();
@@ -3102,7 +3160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // If both parties have confirmed, mark booking as completed
-      if (booking.client_confirmed) {
+      const bothConfirmed = booking.client_confirmed;
+      if (bothConfirmed) {
         updateData.booking_status = 'completed';
       }
 
@@ -3112,7 +3171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .eq('id', bookingId);
 
       // Increment driver's total_trips when booking is completed
-      if (booking.client_confirmed) {
+      if (bothConfirmed) {
         const { data: driverData } = await supabase
           .from('drivers')
           .select('total_trips')
@@ -3127,8 +3186,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send notifications after successful confirmation
+      try {
+        const clientUserId = (booking.client as any)?.user_id;
+        const driverUserId = (booking.driver as any)?.user_id;
+        
+        if (bothConfirmed) {
+          // Both confirmed - notify both parties of completion
+          const completionTemplate = NotificationTemplates.bookingCompleted(booking.fare);
+          const notifications = [];
+          
+          if (clientUserId) {
+            notifications.push(sendNotification({
+              userId: clientUserId,
+              type: 'booking_completed',
+              title: completionTemplate.title,
+              message: completionTemplate.message,
+              data: { booking_id: bookingId, amount: booking.fare },
+            }));
+          }
+          
+          if (driverUserId) {
+            notifications.push(sendNotification({
+              userId: driverUserId,
+              type: 'booking_completed',
+              title: completionTemplate.title,
+              message: completionTemplate.message,
+              data: { booking_id: bookingId, amount: booking.fare },
+            }));
+          }
+          
+          await Promise.all(notifications);
+        } else {
+          // Only driver confirmed - notify client waiting for their confirmation
+          if (clientUserId) {
+            await sendNotification({
+              userId: clientUserId,
+              type: 'booking_driver_confirmed',
+              title: 'Driver Confirmed Trip Completion',
+              message: 'Please confirm the trip completion to finalize payment',
+              data: { booking_id: bookingId },
+            });
+          }
+        }
+      } catch (notificationError) {
+        console.error('Failed to send driver confirmation notification:', notificationError);
+      }
+
       // Check if both confirmed
-      if (booking.client_confirmed) {
+      if (bothConfirmed) {
         // Process payout
         const result = await processCompletionPayout(bookingId);
         if (result.success) {
@@ -3181,10 +3287,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { id: bookingId } = req.params;
 
-      // Verify booking belongs to client
+      // Verify booking belongs to client - fetch with client/driver details for notifications
       const { data: booking } = await supabase
         .from('bookings')
-        .select('*')
+        .select(`
+          *,
+          driver:drivers(id, full_name, user_id),
+          client:clients(id, full_name, user_id)
+        `)
         .eq('id', bookingId)
         .eq('client_id', client.id)
         .single();
@@ -3214,7 +3324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // If both parties have confirmed, mark booking as completed
-      if (booking.driver_confirmed) {
+      const bothConfirmed = booking.driver_confirmed;
+      if (bothConfirmed) {
         updateData.booking_status = 'completed';
       }
 
@@ -3224,7 +3335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .eq('id', bookingId);
 
       // Increment driver's total_trips when booking is completed
-      if (booking.driver_confirmed) {
+      if (bothConfirmed) {
         const { data: driverData } = await supabase
           .from('drivers')
           .select('total_trips')
@@ -3239,8 +3350,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send notifications after successful confirmation
+      try {
+        const clientUserId = (booking.client as any)?.user_id;
+        const driverUserId = (booking.driver as any)?.user_id;
+        
+        if (bothConfirmed) {
+          // Both confirmed - notify both parties of completion
+          const completionTemplate = NotificationTemplates.bookingCompleted(booking.fare);
+          const notifications = [];
+          
+          if (clientUserId) {
+            notifications.push(sendNotification({
+              userId: clientUserId,
+              type: 'booking_completed',
+              title: completionTemplate.title,
+              message: completionTemplate.message,
+              data: { booking_id: bookingId, amount: booking.fare },
+            }));
+          }
+          
+          if (driverUserId) {
+            notifications.push(sendNotification({
+              userId: driverUserId,
+              type: 'booking_completed',
+              title: completionTemplate.title,
+              message: completionTemplate.message,
+              data: { booking_id: bookingId, amount: booking.fare },
+            }));
+          }
+          
+          await Promise.all(notifications);
+        } else {
+          // Only client confirmed - notify driver waiting for their confirmation
+          if (driverUserId) {
+            await sendNotification({
+              userId: driverUserId,
+              type: 'booking_client_confirmed',
+              title: 'Client Confirmed Trip Completion',
+              message: 'Please confirm the trip completion to receive payment',
+              data: { booking_id: bookingId },
+            });
+          }
+        }
+      } catch (notificationError) {
+        console.error('Failed to send client confirmation notification:', notificationError);
+      }
+
       // Check if both confirmed
-      if (booking.driver_confirmed) {
+      if (bothConfirmed) {
         // Process payout
         const result = await processCompletionPayout(bookingId);
         if (result.success) {

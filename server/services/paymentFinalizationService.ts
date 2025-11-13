@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendNotification, NotificationTemplates } from './notificationService';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -151,6 +152,43 @@ export async function finalizeBookingFromPayment(
     }
 
     console.log('Booking created successfully:', booking.id);
+
+    // Send notification to driver about new booking
+    try {
+      // Fetch driver and client details for notifications
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('user_id, full_name')
+        .eq('id', booking.driver_id)
+        .single();
+      
+      const { data: client } = await supabase
+        .from('clients')
+        .select('user_id, full_name')
+        .eq('id', booking.client_id)
+        .single();
+      
+      if (driver?.user_id && client?.full_name) {
+        const template = NotificationTemplates.bookingCreated(
+          driver.full_name || 'Driver',
+          client.full_name || 'Client'
+        );
+        
+        await sendNotification({
+          userId: driver.user_id,
+          type: 'booking_created',
+          title: template.driver.title,
+          message: template.driver.message,
+          data: { 
+            booking_id: booking.id,
+            client_name: client.full_name,
+          },
+        });
+      }
+    } catch (notificationError) {
+      console.error('Failed to send new booking notification:', notificationError);
+      // Don't fail the booking creation if notification fails
+    }
 
     // Create transaction record
     // The unique constraint on paystack_ref will prevent duplicates
