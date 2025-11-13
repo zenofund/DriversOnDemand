@@ -16,12 +16,13 @@ import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { User, DollarSign, CreditCard, Lock, Save, MapPin, Loader2 } from 'lucide-react';
+import { User, DollarSign, CreditCard, Lock, Save, MapPin, Loader2, Bell } from 'lucide-react';
 import { updateDriverProfileSchema, updateDriverBankSchema } from '@shared/schema';
 import type { Driver } from '@shared/schema';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { LocationMap } from '@/components/LocationMap';
 import { ProfilePictureUpload } from '@/components/ProfilePictureUpload';
+import { Switch } from '@/components/ui/switch';
 
 interface Bank {
   name: string;
@@ -99,6 +100,42 @@ export default function Settings() {
   const { data: driverData } = useQuery<Driver>({
     queryKey: ['/api/drivers/me'],
     enabled: !!user,
+  });
+
+  // Notification preferences
+  const { data: notificationPrefs, isLoading: isLoadingPrefs } = useQuery<{
+    booking_notifications: boolean;
+    payment_notifications: boolean;
+    message_notifications: boolean;
+  }>({
+    queryKey: ['/api/notifications/preferences'],
+    enabled: !!user,
+  });
+
+  // Update notification preferences mutation
+  const updateNotificationPrefsMutation = useMutation({
+    mutationFn: async (prefs: {
+      booking_notifications?: boolean;
+      payment_notifications?: boolean;
+      message_notifications?: boolean;
+    }) => {
+      const response = await apiRequest('PUT', '/api/notifications/preferences', prefs);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/preferences'] });
+      toast({
+        title: 'Preferences updated',
+        description: 'Your notification preferences have been updated',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Update failed',
+        description: error.message || 'Failed to update preferences',
+        variant: 'destructive',
+      });
+    },
   });
 
   const updateLocationMutation = useMutation({
@@ -601,6 +638,90 @@ export default function Settings() {
                     </Button>
                   </div>
                 </form>
+              </CardContent>
+            </Card>
+
+            <Separator />
+
+            {/* Notification Preferences */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-primary" />
+                  <CardTitle>Notification Preferences</CardTitle>
+                </div>
+                <CardDescription>Choose which notifications you want to receive</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingPrefs ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-16 bg-muted animate-pulse rounded" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="booking-notifications" className="text-base font-medium">
+                          Booking Notifications
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Get notified about new bookings and booking updates
+                        </p>
+                      </div>
+                      <Switch
+                        id="booking-notifications"
+                        checked={notificationPrefs?.booking_notifications ?? true}
+                        onCheckedChange={(checked) =>
+                          updateNotificationPrefsMutation.mutate({ booking_notifications: checked })
+                        }
+                        disabled={updateNotificationPrefsMutation.isPending}
+                        data-testid="switch-booking-notifications"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="payment-notifications" className="text-base font-medium">
+                          Payment Notifications
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Get notified when you receive payments and payouts
+                        </p>
+                      </div>
+                      <Switch
+                        id="payment-notifications"
+                        checked={notificationPrefs?.payment_notifications ?? true}
+                        onCheckedChange={(checked) =>
+                          updateNotificationPrefsMutation.mutate({ payment_notifications: checked })
+                        }
+                        disabled={updateNotificationPrefsMutation.isPending}
+                        data-testid="switch-payment-notifications"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="message-notifications" className="text-base font-medium">
+                          Message Notifications
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Get notified when you receive new messages from clients
+                        </p>
+                      </div>
+                      <Switch
+                        id="message-notifications"
+                        checked={notificationPrefs?.message_notifications ?? true}
+                        onCheckedChange={(checked) =>
+                          updateNotificationPrefsMutation.mutate({ message_notifications: checked })
+                        }
+                        disabled={updateNotificationPrefsMutation.isPending}
+                        data-testid="switch-message-notifications"
+                      />
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
