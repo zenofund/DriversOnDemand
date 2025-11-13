@@ -346,16 +346,13 @@ export default function Settings() {
       role="driver" 
       onLogout={handleLogout}
     >
-      <div className="p-4 sm:p-6 md:p-8">
-          <div className="max-w-3xl mx-auto space-y-8">
+      <div className="container mx-auto p-6 max-w-4xl">
+          <div className="space-y-6">
             {/* Header */}
             <div>
-              <h1 className="text-3xl font-bold font-heading text-foreground">
+              <h1 className="text-3xl font-bold mb-6" data-testid="text-page-title">
                 Settings
               </h1>
-              <p className="text-muted-foreground mt-1">
-                Manage your account settings and preferences
-              </p>
             </div>
 
             {/* Profile Picture */}
