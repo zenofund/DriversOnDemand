@@ -25,11 +25,13 @@ import {
   AlertCircle,
   CreditCard,
   ShieldCheck,
+  FileText,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { Driver } from '@shared/schema';
 import { ThemeToggle } from './ThemeToggle';
 import { Logo } from './Logo';
+import { TermsOfService } from './TermsOfService';
 
 interface DashboardSidebarProps {
   role: 'driver' | 'client' | 'admin';
@@ -181,6 +183,20 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
           <span className="text-sm text-muted-foreground">Theme</span>
           <ThemeToggle />
         </div>
+        
+        <TermsOfService 
+          trigger={
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3"
+              data-testid="button-terms-sidebar"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="group-data-[collapsible=icon]:hidden">Terms of Service</span>
+            </Button>
+          }
+        />
+
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"

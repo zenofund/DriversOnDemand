@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Link } from 'wouter';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { TermsOfService } from '@/components/TermsOfService';
 import { 
   BadgeCheck, 
   MapPin, 
@@ -208,10 +209,10 @@ export default function Landing() {
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
             <p className="text-xs text-muted-foreground">
-              &copy; {new Date().getFullYear()} Draba. All rights reserved.
+              &copy; {new Date().getFullYear()} Draba. Powered by Zichlu Motors. All rights reserved.
             </p>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
+              <TermsOfService />
               <span>•</span>
               <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
             </div>
