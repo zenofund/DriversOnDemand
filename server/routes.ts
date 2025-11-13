@@ -2421,6 +2421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(newRating);
     } catch (error) {
+      console.error('[POST /api/ratings] Error:', error);
       res.status(500).json({ error: "Server error" });
     }
   });
