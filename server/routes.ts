@@ -3028,17 +3028,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Increment driver's total_trips when booking is completed
       if (bothConfirmed) {
-        const { data: driverData } = await supabase
-          .from('drivers')
-          .select('total_trips')
-          .eq('id', driver.id)
-          .single();
-        
-        if (driverData) {
-          await supabase
-            .from('drivers')
-            .update({ total_trips: (driverData.total_trips || 0) + 1 })
-            .eq('id', driver.id);
+        try {
+          // Use atomic increment to avoid race conditions
+          const { error: incrementError } = await supabase.rpc('increment_driver_trips', { 
+            driver_id: driver.id 
+          });
+          
+          if (incrementError) {
+            console.error('Failed to increment driver total_trips:', incrementError);
+            // Don't fail the request, just log the error
+          }
+        } catch (err) {
+          console.error('Error incrementing driver trips:', err);
         }
       }
 
@@ -3192,17 +3193,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Increment driver's total_trips when booking is completed
       if (bothConfirmed) {
-        const { data: driverData } = await supabase
-          .from('drivers')
-          .select('total_trips')
-          .eq('id', booking.driver_id)
-          .single();
-        
-        if (driverData) {
-          await supabase
-            .from('drivers')
-            .update({ total_trips: (driverData.total_trips || 0) + 1 })
-            .eq('id', booking.driver_id);
+        try {
+          // Use atomic increment to avoid race conditions
+          const { error: incrementError } = await supabase.rpc('increment_driver_trips', { 
+            driver_id: booking.driver_id 
+          });
+          
+          if (incrementError) {
+            console.error('Failed to increment driver total_trips:', incrementError);
+            // Don't fail the request, just log the error
+          }
+        } catch (err) {
+          console.error('Error incrementing driver trips:', err);
         }
       }
 
