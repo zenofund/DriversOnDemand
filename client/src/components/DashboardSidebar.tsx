@@ -91,6 +91,10 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
   const menuItems = getMenuItems();
   const driver = profile as Driver;
   
+  // Check if user is super admin
+  const adminProfile = profile as any;
+  const isSuperAdmin = role === 'admin' && adminProfile?.role === 'super_admin';
+  
   const getProfileName = () => {
     if (!profile) return 'User';
     if ('full_name' in profile) return profile.full_name;
@@ -180,41 +184,46 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
       </SidebarContent>
 
       {/* Logout & Theme */}
-      <SidebarFooter className="p-4 border-t border-sidebar-border space-y-2 group-data-[collapsible=icon]:p-2">
+      <SidebarFooter className="p-4 border-t border-sidebar-border group-data-[collapsible=icon]:p-2">
         <div className="flex items-center justify-between mb-2 group-data-[collapsible=icon]:hidden">
           <span className="text-sm text-muted-foreground">Theme</span>
           <ThemeToggle />
         </div>
         
-        <TermsOfService 
-          trigger={
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-[13px]"
-              data-testid="button-terms-sidebar"
-            >
-              <FileText className="h-4 w-4" />
-              <span className="group-data-[collapsible=icon]:hidden">Terms of Service</span>
-            </Button>
-          }
-        />
+        {/* Hide Terms and Privacy for Super Admin */}
+        {!isSuperAdmin && (
+          <div className="space-y-1">
+            <TermsOfService 
+              trigger={
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-3 text-[13px]"
+                  data-testid="button-terms-sidebar"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span className="group-data-[collapsible=icon]:hidden">Terms of Service</span>
+                </Button>
+              }
+            />
 
-        <PrivacyPolicy 
-          trigger={
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-[13px]"
-              data-testid="button-privacy-sidebar"
-            >
-              <Shield className="h-4 w-4" />
-              <span className="group-data-[collapsible=icon]:hidden">Privacy Policy</span>
-            </Button>
-          }
-        />
+            <PrivacyPolicy 
+              trigger={
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-3 text-[13px]"
+                  data-testid="button-privacy-sidebar"
+                >
+                  <Shield className="h-4 w-4" />
+                  <span className="group-data-[collapsible=icon]:hidden">Privacy Policy</span>
+                </Button>
+              }
+            />
+          </div>
+        )}
 
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10 mt-2"
           onClick={onLogout}
           data-testid="button-logout"
         >
