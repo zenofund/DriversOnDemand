@@ -26,12 +26,14 @@ import {
   CreditCard,
   ShieldCheck,
   FileText,
+  Shield,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { Driver } from '@shared/schema';
 import { ThemeToggle } from './ThemeToggle';
 import { Logo } from './Logo';
 import { TermsOfService } from './TermsOfService';
+import { PrivacyPolicy } from './PrivacyPolicy';
 
 interface DashboardSidebarProps {
   role: 'driver' | 'client' | 'admin';
@@ -188,11 +190,24 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
           trigger={
             <Button
               variant="ghost"
-              className="w-full justify-start gap-3"
+              className="w-full justify-start gap-3 text-[13px]"
               data-testid="button-terms-sidebar"
             >
               <FileText className="h-4 w-4" />
               <span className="group-data-[collapsible=icon]:hidden">Terms of Service</span>
+            </Button>
+          }
+        />
+
+        <PrivacyPolicy 
+          trigger={
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 text-[13px]"
+              data-testid="button-privacy-sidebar"
+            >
+              <Shield className="h-4 w-4" />
+              <span className="group-data-[collapsible=icon]:hidden">Privacy Policy</span>
             </Button>
           }
         />

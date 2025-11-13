@@ -40,7 +40,7 @@ export function TermsOfService({ trigger, triggerClassName }: TermsOfServiceProp
           Read the complete Terms of Service for Draba platform powered by Zichlu Motors
         </p>
         <ScrollArea className="h-[calc(90vh-8rem)] px-6 py-4">
-          <div className="space-y-6" style={{ fontFamily: 'Poppins, sans-serif', fontSize: '12px', lineHeight: '1.6' }}>
+          <div className="space-y-6" style={{ fontFamily: 'Poppins, sans-serif', fontSize: '13px', lineHeight: '1.6' }}>
             {/* Last Updated */}
             <p className="text-muted-foreground italic">
               Last Updated: November 13, 2025

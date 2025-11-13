@@ -4,6 +4,7 @@ import { Link } from 'wouter';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { TermsOfService } from '@/components/TermsOfService';
+import { PrivacyPolicy } from '@/components/PrivacyPolicy';
 import { 
   BadgeCheck, 
   MapPin, 
@@ -211,10 +212,10 @@ export default function Landing() {
             <p className="text-xs text-muted-foreground">
               &copy; {new Date().getFullYear()} Draba. Powered by Zichlu Motors. All rights reserved.
             </p>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 text-[13px] text-muted-foreground">
               <TermsOfService />
               <span>•</span>
-              <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
+              <PrivacyPolicy />
             </div>
           </div>
         </div>
