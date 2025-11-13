@@ -459,8 +459,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return distance <= MAX_DISTANCE_KM;
       });
 
+      // Calculate total_trips from actual completed bookings for each driver
+      const driversWithTripCount = await Promise.all(
+        nearbyDrivers.map(async (driver) => {
+          const { data: completedBookings } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('driver_id', driver.id)
+            .eq('booking_status', 'completed');
+          
+          // Override total_trips with actual count from completed bookings
+          return {
+            ...driver,
+            total_trips: completedBookings?.length || 0
+          };
+        })
+      );
+
       // Sort by distance (closest first) and limit to 10
-      const sortedDrivers = nearbyDrivers
+      const sortedDrivers = driversWithTripCount
         .sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0))
         .slice(0, 10);
 

@@ -15,10 +15,13 @@ Draba is a production-ready, full-stack platform connecting clients with verifie
   - Root cause: Duplicate API endpoints with mismatched field names (old: `push_enabled`, `booking_updates` vs new: `booking_notifications`, `payment_notifications`)
   - Solution: Removed duplicate legacy endpoints, keeping only correct ones that match frontend expectations
   - Impact: Notification preferences now correctly sync between UI and backend
+  - Migration 012: Created migration to add new notification columns (`booking_notifications`, `payment_notifications`, `message_notifications`) while maintaining backward compatibility
 - **Driver Metrics Critical Bug Fixes**: Fixed two major bugs preventing accurate driver stats in discovery view
-  - **total_trips Counter**: Now properly increments when bookings are completed (was always showing 0)
+  - **total_trips Counter**: Replaced unreliable database field increment with atomic SQL function `increment_driver_trips()` to prevent race conditions
   - **Rating Calculation**: Fixed to only include client→driver ratings (was incorrectly mixing driver→client ratings from 2-way rating system)
-  - Impact: Driver discovery now shows accurate trip counts and ratings
+  - **Trip Count Calculation**: Modified `/api/drivers/nearby` endpoint to calculate `total_trips` from actual completed bookings instead of database field
+  - Impact: Driver discovery now shows accurate trip counts and ratings, matching the calculation logic used in driver dashboard
+  - Migration 013: Created SQL function for atomic trip counter increment with proper error handling
 - **Pending Earnings Data Structure Fix**: Updated Earnings page frontend to correctly consume backend API response structure, fixing ₦0 display bug
 - **Driver History Page Crash Fix**: Added null safety for total_fare field preventing "Cannot read properties of undefined" error
 - **Missing Import Fix**: Added CheckCircle icon import to DriverDashboard preventing LSP errors
