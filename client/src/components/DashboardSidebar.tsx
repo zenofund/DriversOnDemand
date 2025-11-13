@@ -108,7 +108,7 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
   return (
     <Sidebar collapsible="icon">
       {/* Logo Section */}
-      <SidebarHeader className="p-6 border-b border-sidebar-border">
+      <SidebarHeader className="p-6 border-b border-sidebar-border group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
         <Link href={role === 'admin' ? '/admin/dashboard' : role === 'driver' ? '/driver/dashboard' : '/client/dashboard'}>
           <Logo size="sm" />
         </Link>
@@ -116,8 +116,8 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
 
       <SidebarContent>
         {/* Profile Section */}
-        <div className="p-6 border-b border-sidebar-border group-data-[collapsible=icon]:p-2">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="p-6 border-b border-sidebar-border group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+          <div className="flex items-center gap-3 mb-4 group-data-[collapsible=icon]:mb-0">
             <Avatar className="h-12 w-12 border-2 border-primary/10 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8">
               <AvatarImage 
                 src={getProfilePictureUrl()} 
@@ -152,7 +152,7 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
         </div>
 
         {/* Navigation */}
-        <div className="p-4 space-y-1">
+        <div className="p-4 space-y-1 group-data-[collapsible=icon]:p-2">
           <SidebarMenu>
             {menuItems.map((item) => {
               const isActive = location === item.path;
@@ -176,7 +176,7 @@ export function DashboardSidebar({ role, onLogout, onToggleOnline, isOnline }: D
       </SidebarContent>
 
       {/* Logout & Theme */}
-      <SidebarFooter className="p-4 border-t border-sidebar-border space-y-2">
+      <SidebarFooter className="p-4 border-t border-sidebar-border space-y-2 group-data-[collapsible=icon]:p-2">
         <div className="flex items-center justify-between mb-2 group-data-[collapsible=icon]:hidden">
           <span className="text-sm text-muted-foreground">Theme</span>
           <ThemeToggle />
