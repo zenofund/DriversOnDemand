@@ -2800,17 +2800,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updates = req.body;
 
-      const { data, error } = await supabase
+      // Try to update existing preferences
+      let { data, error } = await supabase
         .from('notification_preferences')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('user_id', user.id)
         .select()
         .single();
 
-      if (error) throw error;
+      // If no record exists, create one
+      if (error && error.code === 'PGRST116') {
+        const createResult = await supabase
+          .from('notification_preferences')
+          .insert([{ user_id: user.id, ...updates }])
+          .select()
+          .single();
+        
+        if (createResult.error) {
+          console.error('Error creating notification preferences:', createResult.error);
+          throw createResult.error;
+        }
+        
+        data = createResult.data;
+      } else if (error) {
+        console.error('Error updating notification preferences:', error);
+        throw error;
+      }
 
       res.json(data);
     } catch (error) {
+      console.error('Server error in PUT /api/notifications/preferences:', error);
       res.status(500).json({ error: "Server error" });
     }
   });
