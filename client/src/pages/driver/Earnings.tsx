@@ -12,6 +12,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { DollarSign, TrendingUp, Clock, CheckCircle, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { coerceAmount, formatNaira } from '@/lib/currency';
 
 interface PendingSettlement {
   booking_id: number;
@@ -97,8 +98,8 @@ export default function Earnings() {
     return null;
   }
 
-  const totalPending = pendingSettlements.reduce((sum, s) => sum + s.driver_share, 0);
-  const totalPaid = payoutHistory.reduce((sum, p) => p.status === 'completed' ? sum + p.amount : sum, 0);
+  const totalPending = pendingSettlements.reduce((sum, s) => sum + coerceAmount(s.driver_share), 0);
+  const totalPaid = payoutHistory.reduce((sum, p) => p.status === 'completed' ? sum + coerceAmount(p.amount) : sum, 0);
 
   const getPayoutStatusColor = (status: string) => {
     switch (status) {
@@ -136,7 +137,7 @@ export default function Earnings() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-foreground" data-testid="text-pending-earnings">
-                    ₦{totalPending.toLocaleString()}
+                    {formatNaira(totalPending)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     {pendingSettlements.length} settlement{pendingSettlements.length !== 1 ? 's' : ''} pending
@@ -151,7 +152,7 @@ export default function Earnings() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-foreground" data-testid="text-total-paid">
-                    ₦{totalPaid.toLocaleString()}
+                    {formatNaira(totalPaid)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     From completed trips
@@ -206,10 +207,10 @@ export default function Earnings() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-green-600 dark:text-green-400">
-                            +₦{settlement.driver_share.toLocaleString()}
+                            +{formatNaira(settlement.driver_share)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            From ₦{settlement.total_fare.toLocaleString()}
+                            From {formatNaira(settlement.total_fare)}
                           </p>
                         </div>
                       </div>
@@ -260,7 +261,7 @@ export default function Earnings() {
                           )}
                         </div>
                         <p className="font-bold text-lg">
-                          ₦{payout.amount.toLocaleString()}
+                          {formatNaira(payout.amount)}
                         </p>
                       </div>
                     ))}

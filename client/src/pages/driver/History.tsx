@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import { History as HistoryIcon, MapPin, DollarSign, User, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import { coerceAmount, formatNaira } from '@/lib/currency';
 
 interface Booking {
   id: number;
@@ -77,7 +78,7 @@ export default function History() {
 
   const totalEarned = bookings
     .filter(b => b.booking_status === 'completed')
-    .reduce((sum, b) => sum + b.total_fare, 0);
+    .reduce((sum, b) => sum + coerceAmount(b.total_fare), 0);
 
   const completedCount = bookings.filter(b => b.booking_status === 'completed').length;
   const cancelledCount = bookings.filter(b => b.booking_status === 'cancelled').length;
@@ -135,7 +136,7 @@ export default function History() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-total-earned">
-                    ₦{totalEarned.toLocaleString()}
+                    {formatNaira(totalEarned)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     From completed trips
@@ -194,7 +195,7 @@ export default function History() {
                           <div className="text-right">
                             <p className="text-xs text-muted-foreground">Fare</p>
                             <p className="text-lg font-bold">
-                              ₦{(booking.total_fare ?? 0).toLocaleString()}
+                              {formatNaira(booking.total_fare)}
                             </p>
                           </div>
                         </div>
