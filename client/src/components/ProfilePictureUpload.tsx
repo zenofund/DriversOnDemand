@@ -46,7 +46,8 @@ export function ProfilePictureUpload({
         });
 
       if (uploadError) {
-        throw new Error('Failed to upload image');
+        console.error('Storage upload error:', uploadError);
+        throw new Error(uploadError.message || 'Failed to upload image to storage');
       }
 
       // Get public URL
@@ -68,7 +69,9 @@ export function ProfilePictureUpload({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Profile update error:', errorData);
+        throw new Error(errorData.error || 'Failed to update profile with new image URL');
       }
 
       return publicUrl;
