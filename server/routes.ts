@@ -2398,6 +2398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           driver_id: booking.driver_id,
           rating,
           review: review || null,
+          rater_role: 'client',
         }])
         .select()
         .single();

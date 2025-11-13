@@ -3,14 +3,22 @@
 ## Overview
 Draba is a production-ready, full-stack platform connecting clients with verified professional drivers in real-time. It features role-based dashboards for drivers, clients, and administrators, offering real-time updates, secure payment processing, and location-based driver search. The project aims to provide a seamless and efficient booking experience, leveraging modern web technologies for scalability and reliability.
 
-## Recent Changes (November 12, 2025)
+## Recent Changes
+
+### November 13, 2025
+- **Dashboard Responsiveness**: Refactored all 18 dashboard pages to use Shadcn sidebar primitives with mobile-first design - sidebar hidden on mobile (<1024px) with hamburger toggle, persistent on desktop (≥1024px)
+- **Ratings System Fix**: Added `rater_role: 'client'` field to POST /api/ratings endpoint to comply with database schema updates from migration 009
+- **Error Logging Enhancement**: Added detailed error logging to ratings endpoint for easier debugging
+- **Missing Package Fix**: Installed svix package dependency for email webhook signature verification
+
+### November 12, 2025
 - **Booking Completion UX Enhancement**: Added "Complete Request" buttons for both drivers and clients on accepted/ongoing trips, allowing early trip completion
 - **Review Button Implementation**: Added "Review Driver" button on client's My Bookings page, visible only after both parties confirm trip completion
 - **Button Placement Optimization**: Reorganized Chat and Complete Request buttons to appear together for better UX consistency
 - **Payment Verification Bug Fixes**: Corrected apiRequest signature usage, implemented frontend ref-based locks to prevent duplicate payment processing
 - **Backend Idempotency**: Enhanced duplicate payment handling with early transaction checks and graceful cleanup
-- **Real-time Sync Fix (⚠️ PENDING MIGRATION)**: Created migration 009 to add SELECT RLS policies on bookings table, enabling clients/drivers to see each other's completion confirmations in real-time via Supabase Realtime
-- **2-Way Ratings Support (⚠️ PENDING MIGRATION)**: Migration 009 adds rater_role enum to ratings table, allowing both clients and drivers to rate each other
+- **Real-time Sync Fix**: Migration 009 adds SELECT RLS policies on bookings table, enabling clients/drivers to see each other's completion confirmations in real-time via Supabase Realtime
+- **2-Way Ratings Support**: Migration 009 adds rater_role enum to ratings table, allowing both clients and drivers to rate each other
 - **Client Approval/Decline Workflow**: When driver confirms completion, client sees "Approve Request" (triggers payment) or "Decline Request" (creates dispute and blocks payment)
 - **Dispute System Integration**: Clients can decline completion with a required reason (min 10 chars), creating a service quality dispute that prevents payment finalization
 - **12-Hour Auto-Complete Worker**: Background job runs every 15 minutes, automatically confirms client-side completion for bookings where driver confirmed >12 hours ago (skips disputed bookings), then triggers payment processing
