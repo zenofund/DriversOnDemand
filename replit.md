@@ -3,8 +3,18 @@
 ## Overview
 Draba is a production-ready, full-stack platform connecting clients with verified professional drivers in real-time. It features role-based dashboards for drivers, clients, and administrators, offering real-time updates, secure payment processing, and location-based driver search. The project aims to provide a seamless and efficient booking experience, leveraging modern web technologies for scalability and reliability.
 
-<<<<<<< HEAD
-## Recent Changes (November 13, 2025)
+## Recent Changes
+
+### November 13, 2025
+- **OneSignal Push Notifications Integration**: Implemented complete push notification system
+  - Backend: Player ID registration, notification preferences API, notification logs retrieval
+  - Notification triggers: booking events, payment alerts, and chat messages
+  - Frontend: OneSignal SDK initialization, automatic player ID registration/cleanup
+  - Settings UI: Toggle switches for notification preferences in both client and driver Settings pages
+- **Notification Preferences UI Bug Fix**: Fixed toggle switches not reflecting saved preferences
+  - Root cause: Duplicate API endpoints with mismatched field names (old: `push_enabled`, `booking_updates` vs new: `booking_notifications`, `payment_notifications`)
+  - Solution: Removed duplicate legacy endpoints, keeping only correct ones that match frontend expectations
+  - Impact: Notification preferences now correctly sync between UI and backend
 - **Driver Metrics Critical Bug Fixes**: Fixed two major bugs preventing accurate driver stats in discovery view
   - **total_trips Counter**: Now properly increments when bookings are completed (was always showing 0)
   - **Rating Calculation**: Fixed to only include client→driver ratings (was incorrectly mixing driver→client ratings from 2-way rating system)
@@ -28,19 +38,11 @@ Draba is a production-ready, full-stack platform connecting clients with verifie
 - **Toast Notification System Upgrade**: Redesigned minimal toast notifications with 3-second auto-dismiss, backdrop blur, success/error variants, and modern styling
 - **Profile Picture Upload Fix (⚠️ REQUIRES STORAGE SETUP)**: Created migration 011 to set up Supabase Storage bucket for profile pictures with proper RLS policies. User must run this migration in Supabase SQL Editor - see SETUP_PROFILE_PICTURES.md for 2-minute setup guide
 - **Enhanced Upload Error Messages**: Profile picture upload now shows detailed error messages instead of generic "Failed to upload image"
-
-## Previous Changes (November 12, 2025)
-=======
-## Recent Changes
-
-### November 13, 2025
 - **Dashboard Responsiveness**: Refactored all 18 dashboard pages to use Shadcn sidebar primitives with mobile-first design - sidebar hidden on mobile (<1024px) with hamburger toggle, persistent on desktop (≥1024px)
 - **Ratings System Fix**: Added `rater_role: 'client'` field to POST /api/ratings endpoint to comply with database schema updates from migration 009
-- **Error Logging Enhancement**: Added detailed error logging to ratings endpoint for easier debugging
 - **Missing Package Fix**: Installed svix package dependency for email webhook signature verification
 
 ### November 12, 2025
->>>>>>> 57ccc5de89d8aa1999de5d046844d7da0ea91b3b
 - **Booking Completion UX Enhancement**: Added "Complete Request" buttons for both drivers and clients on accepted/ongoing trips, allowing early trip completion
 - **Review Button Implementation**: Added "Review Driver" button on client's My Bookings page, visible only after both parties confirm trip completion
 - **Button Placement Optimization**: Reorganized Chat and Complete Request buttons to appear together for better UX consistency
