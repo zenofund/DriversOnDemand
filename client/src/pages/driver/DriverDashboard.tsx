@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { Car, DollarSign, Star, Clock, Check, X, ShieldCheck } from 'lucide-react';
+import { Car, DollarSign, Star, Clock, Check, X, ShieldCheck, CheckCircle } from 'lucide-react';
 import type { Driver, BookingWithDetails } from '@shared/schema';
 import { useGeolocation } from '@/hooks/useGeolocation';
 

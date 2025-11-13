@@ -132,7 +132,15 @@ export function LocationAutocomplete({
         // Set flag to ignore the next onChange event from the input
         ignoreNextChange.current = true;
         
-        onChange(finalAddress, { lat, lng });
+        // Force update the input value to ensure it stays after selection
+        if (inputRef.current) {
+          inputRef.current.value = finalAddress;
+        }
+        
+        // Use setTimeout to ensure state update happens after Google's DOM manipulation
+        setTimeout(() => {
+          onChange(finalAddress, { lat, lng });
+        }, 0);
       }
     });
 
