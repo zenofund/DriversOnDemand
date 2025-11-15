@@ -278,70 +278,73 @@ function ActiveBooking() {
                   <CardTitle>Driver Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-start gap-4">
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  {/* Row 1: Avatar + Driver's Name */}
+                  <div className="flex items-center gap-3">
+                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <User className="h-8 w-8 text-primary" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg" data-testid="text-driver-name">
-                        {activeBooking.driver?.full_name || 'Driver'}
-                      </h3>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                        {activeBooking.payment_status === 'paid' ? (
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            <span data-testid="text-driver-phone">{activeBooking.driver?.phone}</span>
-                          </div>
-                        ) : (
-                          <div className="text-xs text-muted-foreground">
-                            Contact details available after payment confirmation
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span data-testid="text-driver-rating">
-                            {activeBooking.driver?.rating?.toFixed(1)}
-                          </span>
-                        </div>
+                    <h3 className="font-semibold text-lg" data-testid="text-driver-name">
+                      {activeBooking.driver?.full_name || 'Driver'}
+                    </h3>
+                  </div>
+
+                  {/* Row 2: Contact phone + Ratings */}
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    {activeBooking.payment_status === 'paid' ? (
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-4 w-4" />
+                        <span data-testid="text-driver-phone">{activeBooking.driver?.phone}</span>
                       </div>
-                    </div>
-                    {(activeBooking.booking_status === 'accepted' || activeBooking.booking_status === 'ongoing') && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleChat}
-                          data-testid="button-chat"
-                        >
-                          <MessageCircle className="h-4 w-4 mr-2" />
-                          Chat
-                        </Button>
-                        {!activeBooking.client_confirmed && activeBooking.driver_confirmed && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={handleConfirmCompletion}
-                              disabled={confirmCompletionMutation.isPending || declineRequestMutation.isPending}
-                              className="bg-green-600 hover:bg-green-700"
-                              data-testid="button-approve"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              {confirmCompletionMutation.isPending ? 'Approving...' : 'Approve Request'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={handleDeclineClick}
-                              disabled={confirmCompletionMutation.isPending || declineRequestMutation.isPending}
-                              data-testid="button-decline"
-                            >
-                              Decline Request
-                            </Button>
-                          </>
-                        )}
+                    ) : (
+                      <div className="text-xs text-muted-foreground">
+                        Contact details available after payment confirmation
                       </div>
                     )}
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span data-testid="text-driver-rating">
+                        {activeBooking.driver?.rating?.toFixed(1)}
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Row 3: Chat + Approve + Decline (compact) */}
+                  {(activeBooking.booking_status === 'accepted' || activeBooking.booking_status === 'ongoing') && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleChat}
+                        data-testid="button-chat"
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Chat
+                      </Button>
+                      {!activeBooking.client_confirmed && activeBooking.driver_confirmed && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={handleConfirmCompletion}
+                            disabled={confirmCompletionMutation.isPending || declineRequestMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700"
+                            data-testid="button-approve"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            {confirmCompletionMutation.isPending ? 'Approving...' : 'Approve'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={handleDeclineClick}
+                            disabled={confirmCompletionMutation.isPending || declineRequestMutation.isPending}
+                            data-testid="button-decline"
+                          >
+                            Decline
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
