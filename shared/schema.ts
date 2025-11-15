@@ -464,6 +464,69 @@ export type DisputeWithDetails = Dispute & {
 };
 
 // ============================================================================
+// ADMIN BOOKING ACTIONS (AUDIT TRAIL)
+// ============================================================================
+
+export const AdminBookingActionType = {
+  STATUS_CHANGE: 'status_change',
+  FORCE_COMPLETE: 'force_complete',
+  FORCE_CANCEL: 'force_cancel',
+  TRIGGER_PAYOUT: 'trigger_payout',
+  PROCESS_REFUND: 'process_refund',
+  OVERRIDE_CONFIRMATION: 'override_confirmation',
+} as const;
+
+export const adminBookingActionSchema = z.object({
+  id: z.string().uuid(),
+  booking_id: z.string().uuid(),
+  admin_user_id: z.string().uuid(),
+  action_type: z.enum([
+    AdminBookingActionType.STATUS_CHANGE,
+    AdminBookingActionType.FORCE_COMPLETE,
+    AdminBookingActionType.FORCE_CANCEL,
+    AdminBookingActionType.TRIGGER_PAYOUT,
+    AdminBookingActionType.PROCESS_REFUND,
+    AdminBookingActionType.OVERRIDE_CONFIRMATION,
+  ]),
+  previous_status: z.string().nullable(),
+  new_status: z.string().nullable(),
+  reason: z.string(),
+  dispute_id: z.string().uuid().nullable(),
+  metadata: z.any().nullable(),
+  created_at: z.string(),
+});
+
+export const createAdminBookingActionSchema = z.object({
+  booking_id: z.string().uuid(),
+  action_type: z.enum([
+    AdminBookingActionType.STATUS_CHANGE,
+    AdminBookingActionType.FORCE_COMPLETE,
+    AdminBookingActionType.FORCE_CANCEL,
+    AdminBookingActionType.TRIGGER_PAYOUT,
+    AdminBookingActionType.PROCESS_REFUND,
+    AdminBookingActionType.OVERRIDE_CONFIRMATION,
+  ]),
+  reason: z.string().min(10, "Reason must be at least 10 characters"),
+  dispute_id: z.string().uuid().optional(),
+  new_status: z.enum([
+    BookingStatus.PENDING,
+    BookingStatus.ACCEPTED,
+    BookingStatus.ONGOING,
+    BookingStatus.COMPLETED,
+    BookingStatus.CANCELLED,
+  ]).optional(),
+});
+
+export type AdminBookingAction = z.infer<typeof adminBookingActionSchema>;
+export type CreateAdminBookingAction = z.infer<typeof createAdminBookingActionSchema>;
+
+export type AdminBookingActionWithDetails = AdminBookingAction & {
+  booking?: Booking;
+  admin_user?: AdminUser;
+  dispute?: Dispute;
+};
+
+// ============================================================================
 // EMAIL SCHEMAS
 // ============================================================================
 
