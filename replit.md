@@ -23,7 +23,7 @@ Key features include:
 - **Secure Payment Processing:** Paystack integration for fees, escrow, and split payouts.
 - **Driver Verification:** A process to ensure professional standards.
 - **Booking Flow:** Client search, booking, payment, and real-time tracking.
-- **Admin Oversight:** User management, analytics, booking, transaction monitoring, and manual NIN verification approval.
+- **Admin Oversight:** User management, analytics, booking, transaction monitoring, manual NIN verification approval, and ACID-compliant dispute resolution with force-complete/cancel capabilities.
 - **In-App Chat:** Real-time messaging between drivers and clients with Row-Level Security (RLS).
 - **Push Notifications:** OneSignal integration for alerts.
 - **Rating and Review System:** Post-trip feedback mechanism.
@@ -39,6 +39,7 @@ Key features include:
 - **Input Validation:** Zod schemas are used for multi-layer frontend and backend input validation.
 - **Bank Account Security:** Paystack verification is required for all bank account updates.
 - **Email System:** Resend integration includes email logging, retry logic, and Svix signature verification for webhooks, with RLS for admin access to logs.
+- **ACID-Compliant Admin Operations:** PostgreSQL RPC functions with outbox pattern ensure atomic booking updates and audit trail creation. Payouts/refunds are processed asynchronously via background worker with idempotency keys and retry logic (max 5 attempts).
 
 ## External Dependencies
 - **Supabase:** Database, Authentication, Realtime features.
