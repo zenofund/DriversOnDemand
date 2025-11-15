@@ -316,18 +316,6 @@ function ActiveBooking() {
                           <MessageCircle className="h-4 w-4 mr-2" />
                           Chat
                         </Button>
-                        {!activeBooking.client_confirmed && !activeBooking.driver_confirmed && (
-                          <Button
-                            size="sm"
-                            onClick={handleConfirmCompletion}
-                            disabled={confirmCompletionMutation.isPending}
-                            className="bg-green-600 hover:bg-green-700"
-                            data-testid="button-complete"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            {confirmCompletionMutation.isPending ? 'Confirming...' : 'Complete Request'}
-                          </Button>
-                        )}
                         {!activeBooking.client_confirmed && activeBooking.driver_confirmed && (
                           <>
                             <Button

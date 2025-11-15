@@ -295,19 +295,7 @@ export function BookingCard({
               </Button>
             )}
 
-            {/* Client Actions */}
-            {role === 'client' && isOngoing && !booking.client_confirmed && !booking.driver_confirmed && (
-              <Button
-                onClick={() => onConfirmCompletion?.(booking.id)}
-                disabled={isLoading}
-                className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
-                data-testid="button-complete"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {isLoading ? 'Confirming...' : 'Complete Request'}
-              </Button>
-            )}
-
+            {/* Client Actions - Only show when driver has already confirmed */}
             {role === 'client' && isOngoing && !booking.client_confirmed && booking.driver_confirmed && (
               <>
                 <Button
