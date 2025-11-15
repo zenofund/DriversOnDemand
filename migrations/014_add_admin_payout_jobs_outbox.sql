@@ -26,11 +26,20 @@ CREATE INDEX idx_admin_payout_jobs_idempotency ON admin_payout_jobs(idempotency_
 CREATE INDEX idx_admin_payout_jobs_created_at ON admin_payout_jobs(created_at);
 CREATE INDEX idx_admin_payout_jobs_pending ON admin_payout_jobs(status, created_at) WHERE status = 'pending';
 
+-- Function to automatically update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_admin_payout_jobs_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Trigger to update updated_at timestamp
 CREATE TRIGGER update_admin_payout_jobs_updated_at
   BEFORE UPDATE ON admin_payout_jobs
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE FUNCTION update_admin_payout_jobs_updated_at();
 
 -- RLS Policies: Only admins can access payout jobs
 ALTER TABLE admin_payout_jobs ENABLE ROW LEVEL SECURITY;
