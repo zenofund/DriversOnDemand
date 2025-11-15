@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import {
   Table,
   TableBody,
@@ -118,20 +118,11 @@ export default function AdminDisputes() {
 
   const forceCompleteMutation = useMutation({
     mutationFn: async ({ bookingId, reason, disputeId }: { bookingId: string; reason: string; disputeId: string }) => {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const response = await fetch(`/api/admin/bookings/${bookingId}/force-complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reason, dispute_id: disputeId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to force complete booking');
-      }
-
+      const response = await apiRequest(
+        'POST',
+        `/api/admin/bookings/${bookingId}/force-complete`,
+        { reason, dispute_id: disputeId }
+      );
       return response.json();
     },
     onSuccess: (data) => {
@@ -146,10 +137,10 @@ export default function AdminDisputes() {
           : 'Booking marked as completed (payout failed - check logs)',
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
-        description: 'Failed to force complete booking',
+        description: error.message || 'Failed to force complete booking',
         variant: 'destructive',
       });
     },
@@ -162,20 +153,11 @@ export default function AdminDisputes() {
       disputeId: string;
       processRefund: boolean;
     }) => {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const response = await fetch(`/api/admin/bookings/${bookingId}/force-cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reason, dispute_id: disputeId, process_refund: processRefund }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to force cancel booking');
-      }
-
+      const response = await apiRequest(
+        'POST',
+        `/api/admin/bookings/${bookingId}/force-cancel`,
+        { reason, dispute_id: disputeId, process_refund: processRefund }
+      );
       return response.json();
     },
     onSuccess: (data) => {
@@ -191,10 +173,10 @@ export default function AdminDisputes() {
           : 'Booking cancelled successfully',
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: 'Error',
-        description: 'Failed to force cancel booking',
+        description: error.message || 'Failed to force cancel booking',
         variant: 'destructive',
       });
     },
