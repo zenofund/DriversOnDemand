@@ -1558,7 +1558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id,
             client_id,
             driver_id,
-            fare,
+            total_cost,
             booking_status
           )
         `)
