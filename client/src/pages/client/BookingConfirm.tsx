@@ -206,36 +206,36 @@ export default function BookingConfirm() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 max-w-4xl">
+      <div className="container mx-auto p-4 md:p-6 max-w-4xl">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-4 md:mb-6">
           <Button 
             variant="ghost" 
             onClick={handleBack}
-            className="mb-4"
+            className="mb-3 md:mb-4"
             data-testid="button-back"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">Confirm Booking</h1>
-          <p className="text-muted-foreground">Review your booking details before payment</p>
+          <h1 className="text-2xl md:text-3xl font-bold" data-testid="text-page-title">Confirm Booking</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Review your booking details before payment</p>
         </div>
 
-        <div className="grid gap-6">
+        <div className="grid gap-4 md:gap-6">
           {/* Driver Information */}
           <Card>
             <CardHeader>
-              <CardTitle>Driver Details</CardTitle>
+              <CardTitle className="text-lg md:text-xl">Driver Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-8 w-8 text-primary" />
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
+                <div className="h-20 w-20 md:h-16 md:w-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="h-10 w-10 md:h-8 md:w-8 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg" data-testid="text-driver-name">{driver.full_name}</h3>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="font-semibold text-lg md:text-xl" data-testid="text-driver-name">{driver.full_name}</h3>
+                  <div className="flex items-center justify-center md:justify-start gap-4 mt-1 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                       <span data-testid="text-driver-rating">{driver.rating.toFixed(1)}</span>
@@ -246,9 +246,9 @@ export default function BookingConfirm() {
                     Contact details will be available after payment confirmation
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-center md:text-right w-full md:w-auto">
                   <div className="text-sm text-muted-foreground">Hourly Rate</div>
-                  <div className="text-lg font-semibold" data-testid="text-driver-rate">
+                  <div className="text-xl md:text-lg font-semibold" data-testid="text-driver-rate">
                     ₦{driver.hourly_rate.toLocaleString()}/hr
                   </div>
                 </div>
@@ -340,11 +340,11 @@ export default function BookingConfirm() {
           </Card>
 
           {/* Action Buttons */}
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
             <Button
               variant="outline"
               onClick={handleBack}
-              className="flex-1"
+              className="flex-1 h-11 md:h-10"
               disabled={createBookingMutation.isPending}
               data-testid="button-cancel"
             >
@@ -352,7 +352,7 @@ export default function BookingConfirm() {
             </Button>
             <Button
               onClick={handleConfirmBooking}
-              className="flex-1"
+              className="flex-1 h-11 md:h-10 text-sm md:text-base"
               disabled={isCalculating || isDriverLoading || createBookingMutation.isPending}
               data-testid="button-confirm-pay"
             >
@@ -360,8 +360,8 @@ export default function BookingConfirm() {
                 'Processing...'
               ) : (
                 <>
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Confirm & Pay ₦{calculatedCost.toLocaleString()}
+                  <CreditCard className="h-4 w-4 mr-1.5 md:mr-2 flex-shrink-0" />
+                  <span className="truncate">Confirm & Pay ₦{calculatedCost.toLocaleString()}</span>
                 </>
               )}
             </Button>
@@ -369,8 +369,8 @@ export default function BookingConfirm() {
 
           {/* Payment Info */}
           <Card className="bg-muted/50">
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground text-center">
+            <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6">
+              <p className="text-xs md:text-sm text-muted-foreground text-center leading-relaxed">
                 You'll be redirected to Paystack to complete your payment securely.
                 Payment will be held until trip completion is confirmed.
               </p>
