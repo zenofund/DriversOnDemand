@@ -46,6 +46,7 @@ interface BookingCardProps {
   viewMode?: 'active' | 'history';
   onAccept?: (bookingId: string) => void;
   onReject?: (bookingId: string) => void;
+  onStartTrip?: (bookingId: string) => void;
   onConfirmCompletion?: (bookingId: string) => void;
   onDeclineCompletion?: (bookingId: string) => void;
   onChat?: (bookingId: string) => void;
@@ -58,6 +59,7 @@ export function BookingCard({
   viewMode = 'active',
   onAccept,
   onReject,
+  onStartTrip,
   onConfirmCompletion,
   onDeclineCompletion,
   onChat,
@@ -281,6 +283,18 @@ export function BookingCard({
                   {isLoading ? 'Rejecting...' : 'Reject'}
                 </Button>
               </>
+            )}
+
+            {role === 'driver' && isAccepted && (
+              <Button
+                onClick={() => onStartTrip?.(booking.id)}
+                disabled={isLoading}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                data-testid="button-start-trip"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {isLoading ? 'Starting...' : 'Start Trip'}
+              </Button>
             )}
 
             {role === 'driver' && isOngoing && !booking.driver_confirmed && (

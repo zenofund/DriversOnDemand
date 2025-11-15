@@ -3570,6 +3570,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // COMPLETION CONFIRMATION ENDPOINTS
   // ============================================================================
 
+  // Driver starts trip (changes status from accepted to ongoing)
+  app.post("/api/bookings/:id/start-trip", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!driver) {
+        return res.status(403).json({ error: "Only drivers can start trips" });
+      }
+
+      const { id: bookingId } = req.params;
+
+      // Verify booking belongs to driver and is in accepted status
+      const { data: booking, error: bookingError } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .eq('driver_id', driver.id)
+        .single();
+
+      if (bookingError || !booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      if (booking.booking_status !== 'accepted') {
+        return res.status(400).json({ error: "Booking must be in accepted status to start trip" });
+      }
+
+      // Update booking status to ongoing
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({
+          booking_status: 'ongoing',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
+
+      if (updateError) {
+        return res.status(500).json({ error: "Failed to start trip" });
+      }
+
+      res.json({ 
+        success: true,
+        message: "Trip started successfully" 
+      });
+    } catch (error) {
+      console.error('Error starting trip:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Driver confirms completion
   app.post("/api/bookings/:id/driver-confirm", async (req, res) => {
     try {

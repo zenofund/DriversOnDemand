@@ -127,6 +127,26 @@ export default function ActiveBookings() {
     },
   });
 
+  const startTripMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      return apiRequest('POST', `/api/bookings/${bookingId}/start-trip`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/active'] });
+      toast({
+        title: 'Trip Started',
+        description: 'The trip is now in progress.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Failed to start trip',
+        description: error.message || 'Could not start the trip',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const confirmCompletionMutation = useMutation({
     mutationFn: async (bookingId: string) => {
       return apiRequest('POST', `/api/bookings/${bookingId}/driver-confirm`);
@@ -208,9 +228,10 @@ export default function ActiveBookings() {
                     viewMode="active"
                     onAccept={(id) => acceptBookingMutation.mutate(id)}
                     onReject={(id) => rejectBookingMutation.mutate(id)}
+                    onStartTrip={(id) => startTripMutation.mutate(id)}
                     onConfirmCompletion={(id) => confirmCompletionMutation.mutate(id)}
                     onChat={handleChat}
-                    isLoading={acceptBookingMutation.isPending || rejectBookingMutation.isPending || confirmCompletionMutation.isPending}
+                    isLoading={acceptBookingMutation.isPending || rejectBookingMutation.isPending || startTripMutation.isPending || confirmCompletionMutation.isPending}
                   />
                 ))}
               </div>
