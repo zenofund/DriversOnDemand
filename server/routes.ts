@@ -1557,11 +1557,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           booking:bookings(
             id,
             client_id,
-            driver_id
-          ),
-          reporter:users!disputes_reported_by_fkey(
-            id,
-            full_name
+            driver_id,
+            fare,
+            booking_status
           )
         `)
         .order('created_at', { ascending: false });
