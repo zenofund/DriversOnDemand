@@ -3683,7 +3683,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData: any = {
         driver_confirmed: true,
         driver_confirmed_at: new Date().toISOString(),
-        payment_status: booking.payment_status, // Preserve existing payment status
         updated_at: new Date().toISOString(),
       };
 
