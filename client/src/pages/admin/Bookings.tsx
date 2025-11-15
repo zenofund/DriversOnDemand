@@ -33,7 +33,7 @@ export default function AdminBookings() {
     }
   }, [isLoading, user, role, setLocation]);
 
-  const { data: bookings = [], isLoading: isLoadingBookings } = useQuery<any[]>({
+  const { data: bookings = [], isLoading: isLoadingBookings } = useQuery<BookingWithDetails[]>({
     queryKey: ['/api/admin/bookings'],
     enabled: !!user && role === 'admin',
   });
@@ -46,10 +46,10 @@ export default function AdminBookings() {
 
   const filteredBookings = bookings.filter(
     (booking) =>
-      booking.start_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.destination.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.driver?.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.client?.full_name.toLowerCase().includes(searchTerm.toLowerCase())
+      (booking.start_location ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.destination ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.driver?.full_name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.client?.full_name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const stats = {
