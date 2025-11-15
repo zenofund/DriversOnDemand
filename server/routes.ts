@@ -1739,6 +1739,458 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // ADMIN BOOKING ACTIONS (Status management, force complete/cancel, refunds)
+  // ============================================================================
+  
+  // TODO: Transaction handling improvement
+  // The current implementation performs multiple Supabase mutations sequentially
+  // (booking status update + audit log insert + external payout/refund calls).
+  // For production, implement:
+  // 1. Postgres RPC function (security definer) to atomically update booking + audit log
+  // 2. Outbox pattern (admin_payout_jobs table) for external API calls
+  // 3. Idempotent background worker to process payouts/refunds from outbox
+  // This ensures ACID guarantees and prevents partial state corruption on failures.
+
+  // Admin: Update booking status with audit trail
+  app.post("/api/admin/bookings/:id/update-status", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { id: bookingId } = req.params;
+      
+      // Validate request body with Zod
+      const { adminUpdateBookingStatusSchema } = await import('@shared/schema');
+      const validation = adminUpdateBookingStatusSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.issues 
+        });
+      }
+
+      const { new_status, reason, dispute_id } = validation.data;
+
+      // Get current booking
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const previousStatus = booking.booking_status;
+
+      // Update booking status
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({
+          booking_status: new_status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
+
+      if (updateError) {
+        return res.status(500).json({ error: "Failed to update booking status" });
+      }
+
+      // Create audit trail
+      await supabase
+        .from('admin_booking_actions')
+        .insert([{
+          booking_id: bookingId,
+          admin_user_id: user.id,
+          action_type: 'status_change',
+          previous_status: previousStatus,
+          new_status,
+          reason,
+          dispute_id: dispute_id || null,
+        }]);
+
+      res.json({ 
+        success: true,
+        previous_status: previousStatus,
+        new_status,
+      });
+    } catch (error) {
+      console.error('Admin booking status update error:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Admin: Force complete booking with payout trigger
+  app.post("/api/admin/bookings/:id/force-complete", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { id: bookingId } = req.params;
+      
+      // Validate request body with Zod
+      const { adminForceCompleteBookingSchema } = await import('@shared/schema');
+      const validation = adminForceCompleteBookingSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.issues 
+        });
+      }
+
+      const { reason, dispute_id } = validation.data;
+
+      // Get booking with full details
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          driver:drivers(id, full_name, user_id),
+          client:clients(id, full_name, user_id)
+        `)
+        .eq('id', bookingId)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const previousStatus = booking.booking_status;
+
+      // Update booking to completed with both confirmations
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({
+          booking_status: 'completed',
+          driver_confirmed: true,
+          client_confirmed: true,
+          driver_confirmed_at: new Date().toISOString(),
+          client_confirmed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
+
+      if (updateError) {
+        return res.status(500).json({ error: "Failed to complete booking" });
+      }
+
+      // Create audit trail
+      await supabase
+        .from('admin_booking_actions')
+        .insert([{
+          booking_id: bookingId,
+          admin_user_id: user.id,
+          action_type: 'force_complete',
+          previous_status: previousStatus,
+          new_status: 'completed',
+          reason,
+          dispute_id: dispute_id || null,
+          metadata: {
+            driver_confirmed: true,
+            client_confirmed: true,
+          },
+        }]);
+
+      // Trigger completion payout
+      try {
+        const { processCompletionPayout } = await import('./services/completionPayoutService');
+        const payoutResult = await processCompletionPayout(bookingId);
+        
+        if (payoutResult.success) {
+          // Create additional audit entry for payout
+          await supabase
+            .from('admin_booking_actions')
+            .insert([{
+              booking_id: bookingId,
+              admin_user_id: user.id,
+              action_type: 'trigger_payout',
+              previous_status: null,
+              new_status: null,
+              reason: `Payout triggered as part of force completion: ${reason}`,
+              dispute_id: dispute_id || null,
+              metadata: {
+                payout_successful: true,
+              },
+            }]);
+
+          res.json({ 
+            success: true,
+            booking_completed: true,
+            payout_triggered: true,
+          });
+        } else {
+          res.json({ 
+            success: true,
+            booking_completed: true,
+            payout_triggered: false,
+            payout_error: payoutResult.error,
+          });
+        }
+      } catch (payoutError) {
+        console.error('Payout trigger error:', payoutError);
+        res.json({ 
+          success: true,
+          booking_completed: true,
+          payout_triggered: false,
+          payout_error: 'Failed to trigger payout',
+        });
+      }
+    } catch (error) {
+      console.error('Force complete error:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Admin: Cancel booking with refund processing
+  app.post("/api/admin/bookings/:id/force-cancel", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { id: bookingId } = req.params;
+      
+      // Validate request body with Zod
+      const { adminForceCancelBookingSchema } = await import('@shared/schema');
+      const validation = adminForceCancelBookingSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validation.error.issues 
+        });
+      }
+
+      const { reason, dispute_id, process_refund = false } = validation.data;
+
+      // Get booking details
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .single();
+
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      const previousStatus = booking.booking_status;
+
+      // Update booking to cancelled
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({
+          booking_status: 'cancelled',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
+
+      if (updateError) {
+        return res.status(500).json({ error: "Failed to cancel booking" });
+      }
+
+      // Create audit trail
+      await supabase
+        .from('admin_booking_actions')
+        .insert([{
+          booking_id: bookingId,
+          admin_user_id: user.id,
+          action_type: 'force_cancel',
+          previous_status: previousStatus,
+          new_status: 'cancelled',
+          reason,
+          dispute_id: dispute_id || null,
+        }]);
+
+      // Process refund if requested and payment was authorized/paid
+      let refundResult = null;
+      if (process_refund && booking.payment_reference && 
+          (booking.payment_status === 'authorized' || booking.payment_status === 'paid')) {
+        try {
+          const paystackResponse = await fetch(`https://api.paystack.co/refund`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${PAYSTACK_SECRET}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              transaction: booking.payment_reference,
+              amount: booking.total_cost * 100, // Convert to kobo
+            }),
+          });
+
+          const refundData = await paystackResponse.json();
+
+          if (refundData.status) {
+            // Update payment status
+            await supabase
+              .from('bookings')
+              .update({
+                payment_status: 'refunded',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', bookingId);
+
+            // Create audit entry for refund
+            await supabase
+              .from('admin_booking_actions')
+              .insert([{
+                booking_id: bookingId,
+                admin_user_id: user.id,
+                action_type: 'process_refund',
+                previous_status: null,
+                new_status: null,
+                reason: `Refund processed as part of cancellation: ${reason}`,
+                dispute_id: dispute_id || null,
+                metadata: {
+                  refund_successful: true,
+                  refund_data: refundData.data,
+                },
+              }]);
+
+            refundResult = {
+              success: true,
+              refund_id: refundData.data.id,
+            };
+          } else {
+            refundResult = {
+              success: false,
+              error: refundData.message,
+            };
+          }
+        } catch (refundError) {
+          console.error('Refund processing error:', refundError);
+          refundResult = {
+            success: false,
+            error: 'Failed to process refund',
+          };
+        }
+      }
+
+      res.json({ 
+        success: true,
+        booking_cancelled: true,
+        refund_processed: refundResult?.success || false,
+        refund_result: refundResult,
+      });
+    } catch (error) {
+      console.error('Force cancel error:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Admin: Get booking action history (audit trail)
+  app.get("/api/admin/bookings/:id/actions", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify admin access
+      const { data: admin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (!admin) {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const { id: bookingId } = req.params;
+
+      const { data: actions, error } = await supabase
+        .from('admin_booking_actions')
+        .select('*')
+        .eq('booking_id', bookingId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return res.status(500).json({ error: "Failed to fetch booking actions" });
+      }
+
+      res.json(actions || []);
+    } catch (error) {
+      console.error('Get booking actions error:', error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // ============================================================================
   // PAYSTACK WEBHOOK
   // ============================================================================
 

@@ -517,6 +517,29 @@ export const createAdminBookingActionSchema = z.object({
   ]).optional(),
 });
 
+export const adminUpdateBookingStatusSchema = z.object({
+  new_status: z.enum([
+    BookingStatus.PENDING,
+    BookingStatus.ACCEPTED,
+    BookingStatus.ONGOING,
+    BookingStatus.COMPLETED,
+    BookingStatus.CANCELLED,
+  ]),
+  reason: z.string().min(10, "Reason must be at least 10 characters"),
+  dispute_id: z.string().uuid().optional(),
+});
+
+export const adminForceCompleteBookingSchema = z.object({
+  reason: z.string().min(10, "Reason must be at least 10 characters"),
+  dispute_id: z.string().uuid().optional(),
+});
+
+export const adminForceCancelBookingSchema = z.object({
+  reason: z.string().min(10, "Reason must be at least 10 characters"),
+  dispute_id: z.string().uuid().optional(),
+  process_refund: z.boolean().optional(),
+});
+
 export type AdminBookingAction = z.infer<typeof adminBookingActionSchema>;
 export type CreateAdminBookingAction = z.infer<typeof createAdminBookingActionSchema>;
 
