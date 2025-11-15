@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { MapPin, Clock, DollarSign, User, Phone, Star, ArrowLeft, CreditCard } from 'lucide-react';
+import { MapPin, Clock, DollarSign, Star, ArrowLeft, CreditCard } from 'lucide-react';
 import type { Driver } from '@shared/schema';
 
 export default function BookingConfirm() {
@@ -230,9 +231,15 @@ export default function BookingConfirm() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
-                <div className="h-20 w-20 md:h-16 md:w-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="h-10 w-10 md:h-8 md:w-8 text-primary" />
-                </div>
+                <Avatar className="h-20 w-20 md:h-16 md:w-16 border-2 border-primary/10 flex-shrink-0">
+                  <AvatarImage 
+                    src={driver.profile_picture_url || undefined} 
+                    alt={driver.full_name}
+                  />
+                  <AvatarFallback className="text-xl md:text-lg font-semibold bg-primary/10 text-primary">
+                    {driver.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="font-semibold text-lg md:text-xl" data-testid="text-driver-name">{driver.full_name}</h3>
                   <div className="flex items-center justify-center md:justify-start gap-4 mt-1 text-sm text-muted-foreground">
@@ -259,7 +266,7 @@ export default function BookingConfirm() {
           {/* Trip Details */}
           <Card>
             <CardHeader>
-              <CardTitle>Trip Details</CardTitle>
+              <CardTitle className="text-lg md:text-xl">Trip Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-3">
@@ -285,7 +292,7 @@ export default function BookingConfirm() {
           {/* Cost Breakdown */}
           <Card>
             <CardHeader>
-              <CardTitle>Cost Breakdown</CardTitle>
+              <CardTitle className="text-lg md:text-xl">Cost Breakdown</CardTitle>
               <CardDescription>
                 {isCalculating ? 'Calculating route details...' : 'Based on estimated trip duration'}
               </CardDescription>
