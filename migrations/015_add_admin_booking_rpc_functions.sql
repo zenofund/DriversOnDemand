@@ -44,9 +44,9 @@ BEGIN
   -- Create audit trail
   INSERT INTO admin_booking_actions (
     booking_id,
-    admin_id,
+    admin_user_id,
     action_type,
-    old_status,
+    previous_status,
     new_status,
     reason,
     dispute_id
@@ -132,9 +132,9 @@ BEGIN
   -- Create audit trail
   INSERT INTO admin_booking_actions (
     booking_id,
-    admin_id,
+    admin_user_id,
     action_type,
-    old_status,
+    previous_status,
     new_status,
     reason,
     dispute_id,
@@ -222,9 +222,9 @@ BEGIN
   -- Create audit trail
   INSERT INTO admin_booking_actions (
     booking_id,
-    admin_id,
+    admin_user_id,
     action_type,
-    old_status,
+    previous_status,
     new_status,
     reason,
     dispute_id,
