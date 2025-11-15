@@ -15,8 +15,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, Calendar, DollarSign, MapPin } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
+import { BookingCard } from '@/components/BookingCard';
 import type { BookingWithDetails } from '@shared/schema';
 
 export default function AdminBookings() {
@@ -150,13 +151,45 @@ export default function AdminBookings() {
               </Card>
             </div>
 
-            {/* Bookings Table */}
-            <Card>
+            {/* Bookings - Mobile Card View (hidden on md+) */}
+            <div className="block lg:hidden space-y-4">
+              {isLoadingBookings ? (
+                <div className="text-center py-8">Loading...</div>
+              ) : filteredBookings.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12">
+                    <div className="text-center text-muted-foreground">
+                      No bookings found
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <h2 className="text-xl font-semibold">All Bookings</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {filteredBookings.length} booking(s) found
+                    </p>
+                  </div>
+                  {filteredBookings.map((booking) => (
+                    <BookingCard
+                      key={booking.id}
+                      booking={booking}
+                      role="admin"
+                      viewMode="history"
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* Bookings Table - Desktop View (hidden on mobile) */}
+            <Card className="hidden lg:block">
               <CardHeader>
                 <CardTitle>All Bookings</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {isLoadingBookings ? (
                   <div className="text-center py-8">Loading...</div>
                 ) : filteredBookings.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
@@ -181,10 +214,7 @@ export default function AdminBookings() {
                         {filteredBookings.map((booking) => (
                           <TableRow key={booking.id}>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                {new Date(booking.created_at).toLocaleDateString()}
-                              </div>
+                              {new Date(booking.created_at).toLocaleDateString()}
                             </TableCell>
                             <TableCell>
                               <div>
@@ -204,13 +234,9 @@ export default function AdminBookings() {
                             </TableCell>
                             <TableCell>
                               <div className="max-w-xs">
-                                <div className="flex items-start gap-1 text-sm">
-                                  <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                                  <span className="truncate">{booking.start_location}</span>
-                                </div>
-                                <div className="flex items-start gap-1 text-sm text-muted-foreground">
-                                  <MapPin className="h-4 w-4 text-status-error mt-0.5 flex-shrink-0" />
-                                  <span className="truncate">{booking.destination}</span>
+                                <div className="text-sm truncate">{booking.start_location}</div>
+                                <div className="text-sm text-muted-foreground truncate">
+                                  {booking.destination}
                                 </div>
                               </div>
                             </TableCell>

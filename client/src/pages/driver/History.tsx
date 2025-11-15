@@ -2,23 +2,22 @@ import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
-import { History as HistoryIcon, MapPin, DollarSign, User, Calendar } from 'lucide-react';
-import { format } from 'date-fns';
+import { History as HistoryIcon, DollarSign, Calendar } from 'lucide-react';
 import { coerceAmount, formatNaira } from '@/lib/currency';
+import { BookingCard } from '@/components/BookingCard';
 
 interface Booking {
-  id: number;
+  id: string;
   client_id: number;
   start_location: string;
   destination: string;
-  booking_status: string;
-  payment_status: string;
-  total_fare: number;
+  booking_status: 'pending' | 'accepted' | 'ongoing' | 'completed' | 'cancelled';
+  payment_status: 'pending' | 'authorized' | 'paid' | 'failed' | 'refunded';
+  total_fare?: number;
   total_cost: number;
   created_at: string;
   scheduled_time?: string;
@@ -65,17 +64,6 @@ export default function History() {
   if (!user) {
     return null;
   }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
-    }
-  };
 
   const totalEarned = bookings
     .filter(b => b.booking_status === 'completed')
@@ -147,7 +135,7 @@ export default function History() {
             </div>
 
             {/* Bookings List */}
-            {isLoading ? (
+            {isLoadingHistory ? (
               <div className="text-center py-12 text-muted-foreground">
                 Loading history...
               </div>
@@ -166,71 +154,27 @@ export default function History() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>All Bookings</CardTitle>
-                  <CardDescription>
+              <div>
+                <div className="mb-4">
+                  <h2 className="text-xl font-semibold">All Bookings</h2>
+                  <p className="text-sm text-muted-foreground">
                     Your past trips and bookings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {bookings.map((booking) => (
-                      <div
-                        key={booking.id}
-                        className="p-4 rounded-md border"
-                        data-testid={`history-booking-${booking.id}`}
-                      >
-                        <div className="flex items-start justify-between gap-4 mb-3">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold">Booking #{booking.id}</h3>
-                              <Badge className={getStatusColor(booking.booking_status)}>
-                                {booking.booking_status}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {format(new Date(booking.created_at), 'PPp')}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground">Fare</p>
-                            <p className="text-lg font-bold">
-                              {formatNaira(booking.total_fare || booking.total_cost)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-2 mb-3">
-                          <div className="flex gap-2 text-sm">
-                            <User className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                            <span className="text-muted-foreground">Client:</span>
-                            <span className="font-medium">{booking.client?.full_name || 'Unknown'}</span>
-                          </div>
-                          <div className="flex gap-2 text-sm">
-                            <MapPin className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <span className="text-muted-foreground">From: </span>
-                              <span>{booking.start_location || 'N/A'}</span>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 text-sm">
-                            <MapPin className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <span className="text-muted-foreground">To: </span>
-                              <span>{booking.destination || 'N/A'}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <Badge variant="outline" className="text-xs">
-                          {booking.payment_status}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  {bookings.map((booking) => (
+                    <BookingCard
+                      key={booking.id}
+                      booking={{
+                        ...booking,
+                        total_cost: booking.total_fare || booking.total_cost,
+                      }}
+                      role="driver"
+                      viewMode="history"
+                    />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
