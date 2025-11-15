@@ -550,6 +550,46 @@ export type AdminBookingActionWithDetails = AdminBookingAction & {
 };
 
 // ============================================================================
+// ADMIN PAYOUT JOBS (Outbox Pattern)
+// ============================================================================
+
+export const PayoutJobType = {
+  PAYOUT: 'payout',
+  REFUND: 'refund',
+} as const;
+
+export const PayoutJobStatus = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+} as const;
+
+export const adminPayoutJobSchema = z.object({
+  id: z.string().uuid(),
+  booking_id: z.string().uuid(),
+  admin_action_id: z.string().uuid().nullable(),
+  job_type: z.enum([PayoutJobType.PAYOUT, PayoutJobType.REFUND]),
+  idempotency_key: z.string(),
+  payload: z.record(z.any()),
+  status: z.enum([
+    PayoutJobStatus.PENDING,
+    PayoutJobStatus.PROCESSING,
+    PayoutJobStatus.COMPLETED,
+    PayoutJobStatus.FAILED,
+  ]),
+  attempts: z.number().int(),
+  max_attempts: z.number().int(),
+  error_message: z.string().nullable(),
+  last_attempt_at: z.string().nullable(),
+  processed_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export type AdminPayoutJob = z.infer<typeof adminPayoutJobSchema>;
+
+// ============================================================================
 // EMAIL SCHEMAS
 // ============================================================================
 

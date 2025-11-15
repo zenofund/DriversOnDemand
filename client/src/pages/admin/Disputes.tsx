@@ -358,9 +358,14 @@ export default function AdminDisputes() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="secondary">
-                                {dispute.reported_by_role}
-                              </Badge>
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium text-sm">
+                                  {(dispute as any).reporter?.full_name || 'Unknown'}
+                                </span>
+                                <Badge variant="secondary" className="w-fit">
+                                  {dispute.reported_by_role}
+                                </Badge>
+                              </div>
                             </TableCell>
                             <TableCell className="max-w-xs">
                               <div className="truncate">{dispute.description}</div>
