@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/draba-mobile/"
+title = "Draba Mobile"
+version = "1.0.0"
+id = "artifacts/draba-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/draba-mobile/" ]
+localPort = 22778
+
+[services.development]
+run = "pnpm --filter @workspace/draba-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/draba-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/draba-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "22778"
+BASE_PATH = "/draba-mobile/"
