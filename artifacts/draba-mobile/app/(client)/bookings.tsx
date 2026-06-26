@@ -29,16 +29,13 @@ interface Booking {
   };
 }
 
-const STATUS_CONFIG: Record<
-  Booking["status"],
-  { label: string; color: string; bg: string }
-> = {
-  pending: { label: "Pending", color: "#d97706", bg: "#fef3c7" },
-  accepted: { label: "Accepted", color: "#2563eb", bg: "#dbeafe" },
-  ongoing: { label: "Ongoing", color: "#7c3aed", bg: "#ede9fe" },
-  completed: { label: "Completed", color: "#16a34a", bg: "#dcfce7" },
-  cancelled: { label: "Cancelled", color: "#dc2626", bg: "#fee2e2" },
-  rejected: { label: "Rejected", color: "#dc2626", bg: "#fee2e2" },
+const STATUS: Record<Booking["status"], { label: string; color: string; bar: string }> = {
+  pending:   { label: "Pending",   color: "#D97706", bar: "#F59E0B" },
+  accepted:  { label: "Accepted",  color: "#2563EB", bar: "#3B82F6" },
+  ongoing:   { label: "Ongoing",   color: "#7C3AED", bar: "#8B5CF6" },
+  completed: { label: "Completed", color: "#16A34A", bar: "#22C55E" },
+  cancelled: { label: "Cancelled", color: "#DC2626", bar: "#EF4444" },
+  rejected:  { label: "Rejected",  color: "#DC2626", bar: "#EF4444" },
 };
 
 export default function ClientBookingsScreen() {
@@ -49,57 +46,54 @@ export default function ClientBookingsScreen() {
     queryFn: () => apiFetch<Booking[]>("/bookings"),
   });
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
-  };
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
+
+  const active = bookings.filter((b) => b.status === "ongoing" || b.status === "accepted" || b.status === "pending");
+  const past = bookings.filter((b) => b.status === "completed" || b.status === "cancelled" || b.status === "rejected");
+
+  const s = makeStyles(colors);
 
   const renderBooking = useCallback(
-    ({ item }: { item: Booking }) => {
-      const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending;
+    ({ item, index }: { item: Booking; index: number }) => {
+      const cfg = STATUS[item.status] ?? STATUS.pending;
       const isActive = item.status === "ongoing" || item.status === "accepted";
       return (
         <TouchableOpacity
-          style={styles.card}
+          style={s.bookingRow}
           activeOpacity={0.75}
-          onPress={() => {
-            if (isActive) router.push("/(client)/active-booking");
-          }}
+          onPress={() => { if (isActive) router.push("/(client)/active-booking"); }}
         >
-          <View style={styles.cardHeader}>
-            <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
-              <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
+          <View style={[s.statusBar, { backgroundColor: cfg.bar }]} />
+          <View style={s.bookingContent}>
+            <View style={s.bookingTop}>
+              <View style={s.routeCol}>
+                <Text style={s.locationText} numberOfLines={1}>{item.pickup_location}</Text>
+                <View style={s.routeConnector} />
+                <Text style={s.locationText} numberOfLines={1}>{item.destination}</Text>
+              </View>
+              {isActive && (
+                <View style={s.liveChip}>
+                  <View style={s.liveDot} />
+                  <Text style={s.liveText}>Live</Text>
+                </View>
+              )}
             </View>
-            <Text style={styles.date}>{formatDate(item.created_at)}</Text>
-          </View>
 
-          <View style={styles.route}>
-            <View style={styles.routeRow}>
-              <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-              <Text style={styles.location} numberOfLines={1}>{item.pickup_location}</Text>
+            <View style={s.bookingMeta}>
+              <View style={[s.statusTag, { backgroundColor: cfg.color + "18" }]}>
+                <Text style={[s.statusTagText, { color: cfg.color }]}>{cfg.label}</Text>
+              </View>
+              <Text style={s.metaDate}>{formatDate(item.created_at)}</Text>
+              <Text style={s.metaCost}>₦{(item.estimated_cost ?? 0).toLocaleString()}</Text>
             </View>
-            <View style={styles.routeLine} />
-            <View style={styles.routeRow}>
-              <View style={[styles.dot, { backgroundColor: colors.destructive }]} />
-              <Text style={styles.location} numberOfLines={1}>{item.destination}</Text>
-            </View>
-          </View>
 
-          {item.driver && (
-            <View style={styles.driverRow}>
-              <Feather name="user" size={14} color={colors.mutedForeground} />
-              <Text style={styles.driverName}>{item.driver.full_name}</Text>
-              <Feather name="star" size={13} color={colors.warning} style={{ marginLeft: 8 }} />
-              <Text style={styles.driverRating}>{item.driver.rating?.toFixed(1) ?? "–"}</Text>
-            </View>
-          )}
-
-          <View style={styles.cardFooter}>
-            <Text style={styles.cost}>₦{(item.estimated_cost ?? 0).toLocaleString()}</Text>
-            {isActive && (
-              <View style={styles.activeChip}>
-                <View style={styles.activeDot} />
-                <Text style={styles.activeText}>View trip</Text>
+            {item.driver && (
+              <View style={s.driverRow}>
+                <Feather name="user" size={12} color={colors.mutedForeground} />
+                <Text style={s.driverName}>{item.driver.full_name}</Text>
+                <Feather name="star" size={11} color={colors.warning} />
+                <Text style={s.driverRating}>{item.driver.rating?.toFixed(1) ?? "–"}</Text>
               </View>
             )}
           </View>
@@ -109,41 +103,40 @@ export default function ClientBookingsScreen() {
     [colors]
   );
 
-  const styles = makeStyles(colors);
+  if (isLoading) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { paddingTop: Platform.OS === "web" ? 67 : 0 }]}>
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+    <FlatList
+      style={[s.container, { paddingTop: Platform.OS === "web" ? 67 : 0 }]}
+      data={[...active, ...past]}
+      keyExtractor={(b) => b.id}
+      renderItem={renderBooking}
+      refreshControl={
+        <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
+      }
+      ListHeaderComponent={
+        active.length > 0 ? (
+          <Text style={s.sectionLabel}>Active Trips</Text>
+        ) : null
+      }
+      ListEmptyComponent={
+        <View style={s.empty}>
+          <Feather name="calendar" size={40} color={colors.border} />
+          <Text style={s.emptyTitle}>No bookings yet</Text>
+          <Text style={s.emptySub}>Book a driver from the Book tab.</Text>
         </View>
-      ) : (
-        <FlatList
-          data={bookings}
-          keyExtractor={(b) => b.id}
-          renderItem={renderBooking}
-          contentContainerStyle={[
-            styles.list,
-            { paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0) },
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
-              tintColor={colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Feather name="calendar" size={40} color={colors.mutedForeground} />
-              <Text style={styles.emptyTitle}>No bookings yet</Text>
-              <Text style={styles.emptySub}>Book your first driver from the Book tab.</Text>
-            </View>
-          }
-          scrollEnabled={!!bookings.length}
-        />
-      )}
-    </View>
+      }
+      contentContainerStyle={{
+        paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0),
+        flexGrow: bookings.length === 0 ? 1 : undefined,
+      }}
+    />
   );
 }
 
@@ -151,83 +144,86 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     center: { flex: 1, alignItems: "center", justifyContent: "center" },
-    list: { padding: 16, gap: 12 },
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 16,
+
+    sectionLabel: {
+      fontSize: 12,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.mutedForeground,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      paddingBottom: 8,
     },
-    cardHeader: {
+
+    bookingRow: {
       flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 12,
+      backgroundColor: colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
     },
-    badge: {
-      paddingHorizontal: 10,
+    statusBar: { width: 4 },
+    bookingContent: { flex: 1, padding: 16 },
+
+    bookingTop: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      marginBottom: 10,
+    },
+    routeCol: { flex: 1, marginRight: 8 },
+    locationText: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground },
+    routeConnector: {
+      width: 1,
+      height: 10,
+      backgroundColor: colors.border,
+      marginLeft: 1,
+      marginVertical: 3,
+    },
+
+    liveChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      backgroundColor: "#DCFCE7",
+      paddingHorizontal: 9,
       paddingVertical: 4,
       borderRadius: 20,
     },
-    badgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-    date: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-    route: { marginBottom: 10 },
-    routeRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    dot: { width: 8, height: 8, borderRadius: 4 },
-    routeLine: {
-      width: 1,
-      height: 14,
-      backgroundColor: colors.border,
-      marginLeft: 3.5,
-      marginVertical: 2,
+    liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#16A34A" },
+    liveText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#16A34A" },
+
+    bookingMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 8,
     },
-    location: {
-      flex: 1,
-      fontSize: 14,
-      fontFamily: "Inter_400Regular",
-      color: colors.foreground,
+    statusTag: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 20,
     },
+    statusTagText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+    metaDate: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 },
+    metaCost: { fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground },
+
     driverRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      marginBottom: 10,
+      gap: 5,
     },
-    driverName: { fontSize: 13, fontFamily: "Inter_500Medium", color: colors.mutedForeground },
-    driverRating: { fontSize: 13, fontFamily: "Inter_500Medium", color: colors.mutedForeground },
-    cardFooter: {
-      flexDirection: "row",
+    driverName: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, flex: 1 },
+    driverRating: { fontSize: 12, fontFamily: "Inter_500Medium", color: colors.mutedForeground },
+
+    empty: {
+      flex: 1,
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingTop: 10,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
+      justifyContent: "center",
+      paddingTop: 80,
+      gap: 10,
     },
-    cost: { fontSize: 16, fontFamily: "Inter_700Bold", color: colors.foreground },
-    activeChip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: colors.accent,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 20,
-    },
-    activeDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: colors.primary,
-    },
-    activeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.primary },
-    empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 8 },
     emptyTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold", color: colors.foreground },
-    emptySub: {
-      fontSize: 14,
-      fontFamily: "Inter_400Regular",
-      color: colors.mutedForeground,
-      textAlign: "center",
-    },
+    emptySub: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
   });
 }

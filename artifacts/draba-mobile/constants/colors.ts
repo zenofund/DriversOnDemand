@@ -1,75 +1,45 @@
 const colors = {
   light: {
-    text: "#12182D",
+    text: "#1A1E27",
     tint: "#7A6200",
 
-    background: "#FAFAFA",
-    foreground: "#12182D",
+    background: "#F8F8FA",
+    foreground: "#1A1E27",
 
-    card: "#F5F5F3",
-    cardForeground: "#12182D",
+    card: "#FFFFFF",
+    cardForeground: "#1A1E27",
 
     primary: "#7A6200",
-    primaryForeground: "#FAFAFA",
+    primaryForeground: "#FFFFFF",
 
-    secondary: "#F0EFE8",
-    secondaryForeground: "#12182D",
+    secondary: "#F0F1F7",
+    secondaryForeground: "#1A1E27",
 
-    muted: "#F0EFE8",
-    mutedForeground: "#4F5664",
+    muted: "#E4E6F0",
+    mutedForeground: "#545C7E",
 
-    accent: "#F5EFD0",
-    accentForeground: "#12182D",
+    accent: "#C4A225",
+    accentForeground: "#FFFFFF",
 
-    destructive: "#ef4444",
-    destructiveForeground: "#ffffff",
+    destructive: "#BF1010",
+    destructiveForeground: "#FFFFFF",
 
-    success: "#16a34a",
-    successForeground: "#ffffff",
+    border: "#E0E2EE",
+    input: "#DDE0EC",
 
-    warning: "#f59e0b",
-    warningForeground: "#ffffff",
+    success: "#16A34A",
+    successForeground: "#FFFFFF",
 
-    border: "#DDE0E4",
-    input: "#DDE0E4",
+    warning: "#D97706",
+    warningForeground: "#FFFFFF",
+
+    dark: "#0F1017",
+    darkCard: "#1C2030",
+    darkForeground: "#FFFFFF",
+    darkMuted: "rgba(255,255,255,0.55)",
+    darkBorder: "rgba(255,255,255,0.10)",
   },
-
-  dark: {
-    text: "#F5F5F3",
-    tint: "#C9A84C",
-
-    background: "#0D1117",
-    foreground: "#F5F5F3",
-
-    card: "#161B22",
-    cardForeground: "#F5F5F3",
-
-    primary: "#C9A84C",
-    primaryForeground: "#0D1117",
-
-    secondary: "#21262D",
-    secondaryForeground: "#F5F5F3",
-
-    muted: "#21262D",
-    mutedForeground: "#8B949E",
-
-    accent: "#2A2510",
-    accentForeground: "#F5F5F3",
-
-    destructive: "#f87171",
-    destructiveForeground: "#0D1117",
-
-    success: "#4ade80",
-    successForeground: "#0D1117",
-
-    warning: "#fbbf24",
-    warningForeground: "#0D1117",
-
-    border: "#30363D",
-    input: "#30363D",
-  },
-
-  radius: 8,
+  radius: 12,
 };
 
 export default colors;

@@ -10,18 +10,26 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  StatusBar,
 } from "react-native";
 import { router } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
 import { apiFetch } from "@/lib/queryClient";
-import { useColors } from "@/hooks/useColors";
+
+const DARK = "#0D0F15";
+const DARK_INPUT = "rgba(255,255,255,0.08)";
+const DARK_BORDER = "rgba(255,255,255,0.12)";
+const GOLD = "#C4A225";
+const WHITE = "#FFFFFF";
+const MUTED = "rgba(255,255,255,0.50)";
 
 export default function LoginScreen() {
-  const colors = useColors();
   const { setSession, setUser, setRole, setProfile } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -69,71 +77,78 @@ export default function LoginScreen() {
     }
   };
 
-  const styles = makeStyles(colors);
-
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={s.root}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <StatusBar barStyle="light-content" />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={s.scroll}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoArea}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>D</Text>
+        <View style={s.hero}>
+          <View style={s.logoRing}>
+            <Text style={s.logoLetter}>D</Text>
           </View>
-          <Text style={styles.appName}>Draba</Text>
-          <Text style={styles.tagline}>Your trusted driver on demand</Text>
+          <Text style={s.brand}>DRABA</Text>
+          <Text style={s.tagline}>Your trusted driver, on demand</Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.heading}>Welcome Back</Text>
-          <Text style={styles.subheading}>Sign in to your account</Text>
+        <View style={s.form}>
+          <Text style={s.formHeading}>Sign in</Text>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
+          <View style={s.field}>
+            <Text style={s.label}>Email</Text>
             <TextInput
-              style={styles.input}
+              style={s.input}
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
-              placeholderTextColor={colors.mutedForeground}
+              placeholderTextColor={MUTED}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              selectionColor={GOLD}
             />
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              placeholderTextColor={colors.mutedForeground}
-              secureTextEntry
-            />
+          <View style={s.field}>
+            <Text style={s.label}>Password</Text>
+            <View style={s.inputRow}>
+              <TextInput
+                style={[s.input, { flex: 1, marginBottom: 0 }]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                placeholderTextColor={MUTED}
+                secureTextEntry={!showPass}
+                selectionColor={GOLD}
+              />
+              <TouchableOpacity style={s.eyeBtn} onPress={() => setShowPass(!showPass)}>
+                <Feather name={showPass ? "eye-off" : "eye"} size={18} color={MUTED} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[s.cta, loading && s.ctaDisabled]}
             onPress={handleLogin}
             disabled={loading}
+            activeOpacity={0.85}
           >
             {loading ? (
-              <ActivityIndicator color={colors.primaryForeground} />
+              <ActivityIndicator color={DARK} />
             ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
+              <Text style={s.ctaText}>Sign In</Text>
             )}
           </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+          <View style={s.footer}>
+            <Text style={s.footerText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-              <Text style={styles.link}>Sign up</Text>
+              <Text style={s.footerLink}>Create account</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -142,114 +157,106 @@ export default function LoginScreen() {
   );
 }
 
-function makeStyles(colors: ReturnType<typeof useColors>) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    scrollContent: {
-      flexGrow: 1,
-      justifyContent: "center",
-      padding: 24,
-    },
-    logoArea: {
-      alignItems: "center",
-      marginBottom: 32,
-    },
-    logoCircle: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: colors.primary,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 12,
-    },
-    logoText: {
-      color: colors.primaryForeground,
-      fontSize: 36,
-      fontFamily: "Inter_700Bold",
-    },
-    appName: {
-      fontSize: 28,
-      fontFamily: "Inter_700Bold",
-      color: colors.foreground,
-    },
-    tagline: {
-      fontSize: 14,
-      color: colors.mutedForeground,
-      fontFamily: "Inter_400Regular",
-      marginTop: 4,
-    },
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 24,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    heading: {
-      fontSize: 22,
-      fontFamily: "Inter_700Bold",
-      color: colors.foreground,
-      marginBottom: 4,
-    },
-    subheading: {
-      fontSize: 14,
-      color: colors.mutedForeground,
-      fontFamily: "Inter_400Regular",
-      marginBottom: 24,
-    },
-    field: {
-      marginBottom: 16,
-    },
-    label: {
-      fontSize: 13,
-      fontFamily: "Inter_600SemiBold",
-      color: colors.foreground,
-      marginBottom: 6,
-    },
-    input: {
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      fontSize: 15,
-      color: colors.foreground,
-      fontFamily: "Inter_400Regular",
-    },
-    button: {
-      backgroundColor: colors.primary,
-      borderRadius: 10,
-      paddingVertical: 14,
-      alignItems: "center",
-      marginTop: 8,
-    },
-    buttonDisabled: {
-      opacity: 0.6,
-    },
-    buttonText: {
-      color: colors.primaryForeground,
-      fontSize: 16,
-      fontFamily: "Inter_600SemiBold",
-    },
-    footer: {
-      flexDirection: "row",
-      justifyContent: "center",
-      marginTop: 20,
-    },
-    footerText: {
-      color: colors.mutedForeground,
-      fontFamily: "Inter_400Regular",
-      fontSize: 14,
-    },
-    link: {
-      color: colors.primary,
-      fontFamily: "Inter_600SemiBold",
-      fontSize: 14,
-    },
-  });
-}
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: DARK },
+  scroll: { flexGrow: 1, paddingBottom: 40 },
+
+  hero: {
+    alignItems: "center",
+    paddingTop: Platform.OS === "ios" ? 100 : 80,
+    paddingBottom: 48,
+  },
+  logoRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  logoLetter: {
+    fontSize: 40,
+    fontFamily: "Inter_700Bold",
+    color: DARK,
+    lineHeight: 46,
+  },
+  brand: {
+    fontSize: 28,
+    fontFamily: "Inter_700Bold",
+    color: WHITE,
+    letterSpacing: 4,
+  },
+  tagline: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: MUTED,
+    marginTop: 8,
+  },
+
+  form: {
+    paddingHorizontal: 24,
+  },
+  formHeading: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: WHITE,
+    marginBottom: 24,
+  },
+  field: { marginBottom: 18 },
+  label: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: MUTED,
+    marginBottom: 8,
+  },
+  inputRow: { flexDirection: "row", alignItems: "center" },
+  input: {
+    backgroundColor: DARK_INPUT,
+    borderWidth: 1,
+    borderColor: DARK_BORDER,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: WHITE,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 0,
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: 14,
+    padding: 4,
+  },
+
+  cta: {
+    backgroundColor: GOLD,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  ctaDisabled: { opacity: 0.55 },
+  ctaText: {
+    color: DARK,
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+  },
+
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  footerText: {
+    color: MUTED,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+  },
+  footerLink: {
+    color: GOLD,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+});

@@ -103,6 +103,8 @@ function ClassicClientTabs() {
       />
       <Tabs.Screen name="booking-confirm" options={{ href: null }} />
       <Tabs.Screen name="active-booking" options={{ href: null }} />
+      <Tabs.Screen name="verify-nin" options={{ href: null }} />
+      <Tabs.Screen name="chat" options={{ href: null }} />
     </Tabs>
   );
 }

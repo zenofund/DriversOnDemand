@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  StatusBar,
 } from "react-native";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -26,7 +27,6 @@ export default function DriverProfileScreen() {
   const [phone, setPhone] = useState(driverProfile?.phone ?? "");
   const [hourlyRate, setHourlyRate] = useState(String(driverProfile?.hourly_rate ?? ""));
   const [saving, setSaving] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -46,7 +46,7 @@ export default function DriverProfileScreen() {
         hourly_rate: rate,
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed to update" }));
+        const err = await res.json().catch(() => ({ error: "Failed" }));
         throw new Error(err.error ?? "Failed to update");
       }
       const updated = await res.json();
@@ -66,7 +66,6 @@ export default function DriverProfileScreen() {
         text: "Sign Out",
         style: "destructive",
         onPress: async () => {
-          setLoggingOut(true);
           await supabase.auth.signOut();
           logout();
           router.replace("/(auth)/login");
@@ -76,63 +75,62 @@ export default function DriverProfileScreen() {
   };
 
   const s = makeStyles(colors);
+  const isOnline = driverProfile?.online_status === "online";
+  const initials = (driverProfile?.full_name || user?.email || "D").charAt(0).toUpperCase();
 
   return (
     <ScrollView
       style={s.container}
-      contentContainerStyle={[
-        s.content,
-        {
-          paddingTop: Platform.OS === "web" ? 67 : 16,
-          paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0),
-        },
-      ]}
+      contentContainerStyle={{ paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0) }}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
-      <View style={s.avatarSection}>
-        <View style={s.avatar}>
-          <Text style={s.avatarInitial}>
-            {(driverProfile?.full_name || user?.email || "D").charAt(0).toUpperCase()}
-          </Text>
+      <StatusBar barStyle="light-content" />
+
+      {/* Dark profile header */}
+      <View style={s.hero}>
+        <View style={s.avatarRing}>
+          <Text style={s.avatarText}>{initials}</Text>
         </View>
-        <Text style={s.name}>{driverProfile?.full_name ?? "Driver"}</Text>
-        <Text style={s.email}>{user?.email ?? ""}</Text>
+        <Text style={s.heroName}>{driverProfile?.full_name ?? "Driver"}</Text>
+        <Text style={s.heroEmail}>{user?.email ?? ""}</Text>
+        <View style={s.heroBadges}>
+          {driverProfile?.verified && (
+            <View style={s.verifiedBadge}>
+              <Feather name="check-circle" size={12} color={colors.success} />
+              <Text style={s.verifiedText}>Verified Driver</Text>
+            </View>
+          )}
+          <View style={[s.statusBadge, isOnline ? s.badgeOnline : s.badgeOffline]}>
+            <View style={[s.statusDot, { backgroundColor: isOnline ? colors.success : "rgba(255,255,255,0.4)" }]} />
+            <Text style={[s.statusText, { color: isOnline ? colors.success : "rgba(255,255,255,0.6)" }]}>
+              {isOnline ? "Online" : "Offline"}
+            </Text>
+          </View>
+        </View>
 
         <View style={s.statsRow}>
           <View style={s.statItem}>
-            <Feather name="star" size={14} color={colors.warning} />
+            <Feather name="star" size={14} color={colors.accent} />
             <Text style={s.statValue}>{driverProfile?.rating?.toFixed(1) ?? "5.0"}</Text>
             <Text style={s.statLabel}>Rating</Text>
           </View>
           <View style={s.statDivider} />
           <View style={s.statItem}>
-            <Feather name="map-pin" size={14} color={colors.primary} />
+            <Feather name="navigation" size={14} color={colors.accent} />
             <Text style={s.statValue}>{driverProfile?.total_trips ?? 0}</Text>
             <Text style={s.statLabel}>Trips</Text>
           </View>
           <View style={s.statDivider} />
           <View style={s.statItem}>
-            <View
-              style={[
-                s.onlineDot,
-                driverProfile?.online_status === "online" ? s.dotOnline : s.dotOffline,
-              ]}
-            />
-            <Text style={s.statValue}>
-              {driverProfile?.online_status === "online" ? "Online" : "Offline"}
-            </Text>
-            <Text style={s.statLabel}>Status</Text>
+            <Feather name="dollar-sign" size={14} color={colors.accent} />
+            <Text style={s.statValue}>₦{(driverProfile?.hourly_rate ?? 0).toLocaleString()}</Text>
+            <Text style={s.statLabel}>/ hr</Text>
           </View>
         </View>
-
-        {driverProfile?.verified && (
-          <View style={s.verifiedBadge}>
-            <Feather name="check-circle" size={12} color={colors.success} />
-            <Text style={s.verifiedText}>Verified Driver</Text>
-          </View>
-        )}
       </View>
 
+      {/* Form fields */}
       <View style={s.section}>
         <Text style={s.sectionTitle}>Profile Information</Text>
 
@@ -174,8 +172,8 @@ export default function DriverProfileScreen() {
 
         <View style={s.field}>
           <Text style={s.label}>Email</Text>
-          <View style={[s.input, s.inputDisabled]}>
-            <Text style={s.inputDisabledText}>{user?.email ?? ""}</Text>
+          <View style={s.disabledInput}>
+            <Text style={s.disabledInputText}>{user?.email ?? ""}</Text>
           </View>
         </View>
 
@@ -183,26 +181,35 @@ export default function DriverProfileScreen() {
           style={[s.saveBtn, saving && s.btnDisabled]}
           onPress={handleSave}
           disabled={saving}
+          activeOpacity={0.85}
         >
           {saving ? (
-            <ActivityIndicator color={colors.primaryForeground} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={s.saveBtnText}>Save Changes</Text>
           )}
         </TouchableOpacity>
       </View>
 
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>Account</Text>
-        <TouchableOpacity
-          style={[s.dangerBtn, loggingOut && s.btnDisabled]}
-          onPress={handleLogout}
-          disabled={loggingOut}
-        >
-          <Feather name="log-out" size={16} color={colors.destructive} />
-          <Text style={s.dangerBtnText}>Sign Out</Text>
+      {/* Account menu */}
+      <View style={s.menuSection}>
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(driver)/earnings")}>
+          <Feather name="trending-up" size={18} color={colors.foreground} />
+          <Text style={s.menuItemText}>Earnings</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
+        <View style={s.menuDivider} />
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(driver)/bookings")}>
+          <Feather name="calendar" size={18} color={colors.foreground} />
+          <Text style={s.menuItemText}>Booking History</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+        <Feather name="log-out" size={16} color={colors.destructive} />
+        <Text style={s.logoutText}>Sign Out</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -210,100 +217,133 @@ export default function DriverProfileScreen() {
 function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    content: { padding: 16 },
-    avatarSection: { alignItems: "center", marginBottom: 24 },
-    avatar: {
-      width: 84,
-      height: 84,
-      borderRadius: 42,
+
+    hero: {
+      backgroundColor: colors.dark,
+      paddingHorizontal: 20,
+      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 76 : 24,
+      paddingBottom: 28,
+      alignItems: "center",
+    },
+    avatarRing: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
       backgroundColor: colors.accent,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 12,
     },
-    avatarInitial: { fontSize: 34, fontFamily: "Inter_700Bold", color: colors.primary },
-    name: { fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground },
-    email: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 4 },
-    statsRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingVertical: 14,
-      paddingHorizontal: 20,
-      marginTop: 16,
-      gap: 20,
-    },
-    statItem: { flex: 1, alignItems: "center", gap: 4 },
-    statValue: { fontSize: 16, fontFamily: "Inter_700Bold", color: colors.foreground },
-    statLabel: { fontSize: 11, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-    statDivider: { width: 1, height: 36, backgroundColor: colors.border },
-    onlineDot: { width: 10, height: 10, borderRadius: 5 },
-    dotOnline: { backgroundColor: colors.success },
-    dotOffline: { backgroundColor: colors.mutedForeground },
+    avatarText: { fontSize: 32, fontFamily: "Inter_700Bold", color: colors.dark },
+    heroName: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+    heroEmail: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)", marginTop: 3 },
+    heroBadges: { flexDirection: "row", gap: 8, marginTop: 12, marginBottom: 20 },
     verifiedBadge: {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
-      backgroundColor: colors.muted,
+      backgroundColor: "rgba(22,163,74,0.15)",
       paddingHorizontal: 10,
       paddingVertical: 5,
       borderRadius: 20,
-      marginTop: 10,
     },
     verifiedText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.success },
-    section: {
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 16,
-      marginBottom: 16,
+    statusBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 20,
     },
+    badgeOnline: { backgroundColor: "rgba(22,163,74,0.12)" },
+    badgeOffline: { backgroundColor: "rgba(255,255,255,0.08)" },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
+    statusText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+
+    statsRow: {
+      flexDirection: "row",
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderRadius: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      width: "100%",
+    },
+    statItem: { flex: 1, alignItems: "center", gap: 5 },
+    statValue: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+    statLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.45)" },
+    statDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.12)", marginHorizontal: 4 },
+
+    section: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
     sectionTitle: {
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: "Inter_600SemiBold",
       color: colors.mutedForeground,
       textTransform: "uppercase",
       letterSpacing: 0.5,
       marginBottom: 16,
     },
-    field: { marginBottom: 14 },
-    label: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6 },
+    field: { marginBottom: 16 },
+    label: { fontSize: 13, fontFamily: "Inter_500Medium", color: colors.foreground, marginBottom: 7 },
     input: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 8,
+      borderRadius: 10,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: 13,
       fontSize: 15,
       color: colors.foreground,
       fontFamily: "Inter_400Regular",
     },
-    inputDisabled: { opacity: 0.6, justifyContent: "center" },
-    inputDisabledText: { fontSize: 15, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+    disabledInput: {
+      backgroundColor: colors.muted,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+    },
+    disabledInputText: { fontSize: 15, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
     saveBtn: {
       backgroundColor: colors.primary,
       borderRadius: 10,
-      paddingVertical: 13,
+      paddingVertical: 14,
       alignItems: "center",
       marginTop: 4,
     },
-    saveBtnText: { color: colors.primaryForeground, fontFamily: "Inter_600SemiBold", fontSize: 15 },
-    btnDisabled: { opacity: 0.6 },
-    dangerBtn: {
+    saveBtnText: { color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 },
+    btnDisabled: { opacity: 0.55 },
+
+    menuSection: {
+      marginHorizontal: 20,
+      marginTop: 16,
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    menuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    menuItemText: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium", color: colors.foreground },
+    menuDivider: { height: 1, backgroundColor: colors.border, marginLeft: 16 },
+
+    logoutBtn: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
+      marginHorizontal: 20,
+      marginTop: 16,
+      paddingVertical: 14,
+      borderRadius: 10,
       borderWidth: 1.5,
       borderColor: colors.destructive,
-      borderRadius: 10,
-      paddingVertical: 13,
     },
-    dangerBtnText: { color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 15 },
+    logoutText: { color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 15 },
   });
 }

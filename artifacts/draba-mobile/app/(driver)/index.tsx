@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,12 +7,12 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Switch,
   Platform,
+  StatusBar,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { apiFetch, apiRequest } from "@/lib/queryClient";
 import { useAuthStore, type DriverProfile } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
@@ -35,11 +35,10 @@ interface RecentBooking {
 
 export default function DriverDashboardScreen() {
   const colors = useColors();
-  const qc = useQueryClient();
   const { profile, setProfile } = useAuthStore();
   const driverProfile = profile as DriverProfile | null;
-
   const [toggling, setToggling] = useState(false);
+
   const isOnline = driverProfile?.online_status === "online";
 
   const { data: earnings } = useQuery<EarningsSummary>({
@@ -59,144 +58,142 @@ export default function DriverDashboardScreen() {
     select: (data: any) => (Array.isArray(data) ? data.slice(0, 5) : []),
   });
 
-  const handleToggleOnline = async (value: boolean) => {
+  const handleToggle = async () => {
     if (toggling) return;
-
-    if (value) {
-      // Request location before going online
+    if (!isOnline) {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Location Required", "Please allow location access to go online.");
         return;
       }
-
-      setToggling(true);
-      try {
+    }
+    setToggling(true);
+    try {
+      if (!isOnline) {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         await apiRequest("PATCH", "/drivers/me/location", {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
         });
-        const res = await apiRequest("POST", "/drivers/toggle-online");
-        if (!res.ok) throw new Error("Failed to go online");
-        const updated = await apiRequest("GET", "/drivers/me");
-        if (updated.ok) {
-          const profile = await updated.json();
-          setProfile(profile);
-        } else {
-          setProfile({ ...driverProfile!, online_status: "online" });
-        }
-      } catch (err: any) {
-        Alert.alert("Error", err.message ?? "Could not update status.");
-      } finally {
-        setToggling(false);
       }
-    } else {
-      setToggling(true);
-      try {
-        const res = await apiRequest("POST", "/drivers/toggle-online");
-        if (!res.ok) throw new Error("Failed to go offline");
-        const updated = await apiRequest("GET", "/drivers/me");
-        if (updated.ok) {
-          const profile = await updated.json();
-          setProfile(profile);
-        } else {
-          setProfile({ ...driverProfile!, online_status: "offline" });
-        }
-      } catch (err: any) {
-        Alert.alert("Error", err.message ?? "Could not update status.");
-      } finally {
-        setToggling(false);
-      }
+      const res = await apiRequest("POST", "/drivers/toggle-online");
+      if (!res.ok) throw new Error("Failed to update status");
+      const updated = await apiRequest("GET", "/drivers/me");
+      if (updated.ok) setProfile(await updated.json());
+      else setProfile({ ...driverProfile!, online_status: isOnline ? "offline" : "online" });
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Could not update status.");
+    } finally {
+      setToggling(false);
     }
   };
 
   const s = makeStyles(colors);
 
+  const statusColor = isOnline ? colors.success : colors.mutedForeground;
+
   return (
     <ScrollView
       style={s.container}
-      contentContainerStyle={[
-        s.content,
-        {
-          paddingTop: Platform.OS === "web" ? 67 : 16,
-          paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0),
-        },
-      ]}
+      contentContainerStyle={{ paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0) }}
+      showsVerticalScrollIndicator={false}
     >
-      <View style={s.onlineCard}>
-        <View style={s.onlineLeft}>
-          <View style={[s.statusDot, isOnline ? s.dotOnline : s.dotOffline]} />
+      <StatusBar barStyle="light-content" />
+
+      {/* Dark hero section */}
+      <View style={s.hero}>
+        <View style={s.heroTop}>
           <View>
-            <Text style={s.onlineTitle}>{isOnline ? "You're Online" : "You're Offline"}</Text>
-            <Text style={s.onlineSub}>
-              {isOnline ? "Accepting new bookings" : "Not visible to clients"}
+            <Text style={s.heroGreeting}>Welcome back</Text>
+            <Text style={s.heroName}>{driverProfile?.full_name?.split(" ")[0] ?? "Driver"}</Text>
+          </View>
+          <View style={[s.statusPill, isOnline ? s.pillOnline : s.pillOffline]}>
+            <View style={[s.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[s.statusPillText, { color: statusColor }]}>
+              {isOnline ? "Online" : "Offline"}
             </Text>
           </View>
         </View>
-        {toggling ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : (
-          <Switch
-            value={isOnline}
-            onValueChange={handleToggleOnline}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={colors.primaryForeground}
-          />
-        )}
+
+        <View style={s.toggleArea}>
+          <View>
+            <Text style={s.toggleTitle}>
+              {isOnline ? "You're accepting rides" : "You're not visible"}
+            </Text>
+            <Text style={s.toggleSub}>
+              {isOnline ? "Clients can see and book you" : "Toggle to start receiving requests"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[s.toggleBtn, isOnline ? s.toggleBtnOnline : s.toggleBtnOffline]}
+            onPress={handleToggle}
+            disabled={toggling}
+            activeOpacity={0.8}
+          >
+            {toggling ? (
+              <ActivityIndicator size="small" color={isOnline ? colors.dark : "#FFFFFF"} />
+            ) : (
+              <Feather
+                name={isOnline ? "zap" : "zap-off"}
+                size={18}
+                color={isOnline ? colors.dark : "#FFFFFF"}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* Stats */}
       <View style={s.statsGrid}>
-        <StatCard
-          label="Total Earned"
-          value={`₦${(earnings?.total_earned ?? 0).toLocaleString()}`}
-          icon="trending-up"
-          colors={colors}
-        />
-        <StatCard
-          label="This Week"
-          value={`₦${(earnings?.this_week ?? 0).toLocaleString()}`}
-          icon="calendar"
-          colors={colors}
-        />
-        <StatCard
-          label="Trips Done"
-          value={String(earnings?.completed_trips ?? driverProfile?.total_trips ?? 0)}
-          icon="map-pin"
-          colors={colors}
-        />
-        <StatCard
-          label="Rating"
-          value={driverProfile?.rating?.toFixed(1) ?? "5.0"}
-          icon="star"
-          colors={colors}
-        />
+        <StatTile label="Total Earned" value={`₦${(earnings?.total_earned ?? 0).toLocaleString()}`} icon="trending-up" colors={colors} />
+        <StatTile label="This Week" value={`₦${(earnings?.this_week ?? 0).toLocaleString()}`} icon="calendar" colors={colors} />
+        <StatTile label="Trips Done" value={String(earnings?.completed_trips ?? driverProfile?.total_trips ?? 0)} icon="navigation" colors={colors} />
+        <StatTile label="Rating" value={driverProfile?.rating?.toFixed(1) ?? "5.0"} icon="star" colors={colors} />
       </View>
 
+      {/* Recent activity */}
       {recentBookings.length > 0 && (
         <View style={s.section}>
           <Text style={s.sectionTitle}>Recent Activity</Text>
-          {recentBookings.map((b) => (
-            <View key={b.id} style={s.activityItem}>
-              <View style={s.activityIcon}>
-                <Feather name="navigation" size={14} color={colors.primary} />
+          {recentBookings.map((b, i) => {
+            const statusColors: Record<string, string> = {
+              completed: colors.success,
+              cancelled: colors.destructive,
+              rejected: colors.destructive,
+              ongoing: colors.primary,
+              accepted: colors.primary,
+              pending: colors.warning,
+            };
+            return (
+              <View key={b.id} style={[s.activityRow, i < recentBookings.length - 1 && s.activityRowBorder]}>
+                <View style={[s.activityDot, { backgroundColor: statusColors[b.status] ?? colors.mutedForeground }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.activityRoute} numberOfLines={1}>
+                    {b.pickup_location} → {b.destination}
+                  </Text>
+                  <Text style={s.activityDate}>
+                    {new Date(b.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
+                    {" · "}{b.status}
+                  </Text>
+                </View>
+                <Text style={s.activityAmount}>₦{(b.estimated_cost ?? 0).toLocaleString()}</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.activityRoute} numberOfLines={1}>
-                  {b.pickup_location} → {b.destination}
-                </Text>
-                <Text style={s.activityStatus}>{b.status}</Text>
-              </View>
-              <Text style={s.activityAmount}>₦{(b.estimated_cost ?? 0).toLocaleString()}</Text>
-            </View>
-          ))}
+            );
+          })}
+        </View>
+      )}
+
+      {recentBookings.length === 0 && !toggling && (
+        <View style={s.emptyActivity}>
+          <Feather name="clock" size={28} color={colors.border} />
+          <Text style={s.emptyText}>No recent activity</Text>
         </View>
       )}
     </ScrollView>
   );
 }
 
-function StatCard({
+function StatTile({
   label,
   value,
   icon,
@@ -207,36 +204,15 @@ function StatCard({
   icon: string;
   colors: ReturnType<typeof useColors>;
 }) {
-  const s = StyleSheet.create({
-    card: {
+  return (
+    <View style={{
       width: "48%",
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
       padding: 16,
       marginBottom: 12,
-    },
-    iconBox: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      backgroundColor: colors.accent,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 10,
-    },
-    value: { fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground },
-    label: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 2 },
-  });
-
-  return (
-    <View style={s.card}>
-      <View style={s.iconBox}>
-        <Feather name={icon as any} size={18} color={colors.primary} />
-      </View>
-      <Text style={s.value}>{value}</Text>
-      <Text style={s.label}>{label}</Text>
+    }}>
+      <Feather name={icon as any} size={18} color={colors.primary} style={{ marginBottom: 10 }} />
+      <Text style={{ fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground }}>{value}</Text>
+      <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 3 }}>{label}</Text>
     </View>
   );
 }
@@ -244,59 +220,96 @@ function StatCard({
 function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    content: { padding: 16 },
-    onlineCard: {
+
+    hero: {
+      backgroundColor: colors.dark,
+      paddingHorizontal: 20,
+      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 76 : 24,
+      paddingBottom: 28,
+    },
+    heroTop: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      marginBottom: 28,
+    },
+    heroGreeting: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)" },
+    heroName: { fontSize: 24, fontFamily: "Inter_700Bold", color: "#FFFFFF", marginTop: 2 },
+    statusPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    pillOnline: { backgroundColor: "rgba(22,163,74,0.15)" },
+    pillOffline: { backgroundColor: "rgba(255,255,255,0.08)" },
+    statusDot: { width: 7, height: 7, borderRadius: 4 },
+    statusPillText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+
+    toggleArea: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: colors.card,
+      backgroundColor: "rgba(255,255,255,0.06)",
       borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
       padding: 16,
-      marginBottom: 16,
     },
-    onlineLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-    statusDot: { width: 12, height: 12, borderRadius: 6 },
-    dotOnline: { backgroundColor: colors.success },
-    dotOffline: { backgroundColor: colors.mutedForeground },
-    onlineTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: colors.foreground },
-    onlineSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
-    statsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+    toggleTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFFFFF", marginBottom: 4 },
+    toggleSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)" },
+    toggleBtn: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    toggleBtnOnline: { backgroundColor: colors.accent },
+    toggleBtnOffline: { backgroundColor: "rgba(255,255,255,0.12)" },
+
+    statsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      paddingHorizontal: 12,
+      paddingTop: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+
     section: {
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 16,
-      marginTop: 4,
+      paddingTop: 20,
+      paddingHorizontal: 20,
     },
     sectionTitle: {
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: "Inter_600SemiBold",
       color: colors.mutedForeground,
       textTransform: "uppercase",
       letterSpacing: 0.5,
-      marginBottom: 12,
+      marginBottom: 14,
     },
-    activityItem: {
+    activityRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      paddingVertical: 10,
+      paddingVertical: 13,
+      gap: 12,
+    },
+    activityRowBorder: {
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    activityIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 8,
-      backgroundColor: colors.accent,
-      alignItems: "center",
-      justifyContent: "center",
-    },
+    activityDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
     activityRoute: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground },
-    activityStatus: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, textTransform: "capitalize", marginTop: 2 },
+    activityDate: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 2, textTransform: "capitalize" },
     activityAmount: { fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground },
+
+    emptyActivity: {
+      alignItems: "center",
+      paddingTop: 40,
+      gap: 10,
+    },
+    emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
   });
 }

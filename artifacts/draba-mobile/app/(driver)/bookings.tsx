@@ -15,7 +15,6 @@ import { Feather } from "@expo/vector-icons";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiFetch, apiRequest } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
-import { useAuthStore } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 
 interface BookingRequest {
@@ -35,7 +34,6 @@ interface BookingRequest {
 export default function DriverBookingsScreen() {
   const colors = useColors();
   const qc = useQueryClient();
-  const { user } = useAuthStore();
 
   const { data: bookings = [], isLoading, refetch, isRefetching } = useQuery<BookingRequest[]>({
     queryKey: ["/api/driver/bookings"],
@@ -49,10 +47,8 @@ export default function DriverBookingsScreen() {
   useEffect(() => {
     const channel = supabase
       .channel("driver-bookings-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookings" },
-        () => qc.invalidateQueries({ queryKey: ["/api/driver/bookings"] })
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () =>
+        qc.invalidateQueries({ queryKey: ["/api/driver/bookings"] })
       )
       .subscribe();
     return () => { channel.unsubscribe(); };
@@ -70,168 +66,184 @@ export default function DriverBookingsScreen() {
 
   const s = makeStyles(colors);
 
-  const renderPending = ({ item }: { item: BookingRequest }) => (
-    <View style={s.pendingCard}>
-      <View style={s.requestHeader}>
-        <View style={s.newBadge}>
-          <Text style={s.newBadgeText}>New Request</Text>
-        </View>
-        <Text style={s.timeText}>
-          {new Date(item.created_at).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}
-        </Text>
-      </View>
+  const sections: Array<{ title: string; items: BookingRequest[] }> = [
+    ...(pending.length > 0 ? [{ title: "New Requests", items: pending }] : []),
+    ...(active.length > 0 ? [{ title: "Active Trip", items: active }] : []),
+  ];
 
-      {item.client && (
-        <View style={s.clientRow}>
-          <View style={s.clientAvatar}>
-            <Text style={s.clientInitial}>{item.client.full_name.charAt(0).toUpperCase()}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.clientName}>{item.client.full_name}</Text>
-            <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.client!.phone}`)}>
-              <Text style={s.clientPhone}>{item.client.phone}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+  const listData: Array<{ type: "header"; title: string } | { type: "pending"; item: BookingRequest } | { type: "active"; item: BookingRequest } | { type: "history"; item: BookingRequest; index: number }> = [];
 
-      <View style={s.routeBox}>
-        <View style={s.routeRow}>
-          <View style={[s.routeDot, { backgroundColor: colors.primary }]} />
-          <Text style={s.routeText} numberOfLines={1}>{item.pickup_location}</Text>
-        </View>
-        <View style={s.routeLine} />
-        <View style={s.routeRow}>
-          <View style={[s.routeDot, { backgroundColor: colors.destructive }]} />
-          <Text style={s.routeText} numberOfLines={1}>{item.destination}</Text>
-        </View>
-      </View>
+  if (pending.length > 0) {
+    listData.push({ type: "header", title: "New Requests" });
+    pending.forEach((item) => listData.push({ type: "pending", item }));
+  }
+  if (active.length > 0) {
+    listData.push({ type: "header", title: "Active Trip" });
+    active.forEach((item) => listData.push({ type: "active", item }));
+  }
+  if (history.length > 0) {
+    listData.push({ type: "header", title: "Past Trips" });
+    history.slice(0, 15).forEach((item, index) => listData.push({ type: "history", item, index }));
+  }
 
-      <View style={s.tripMeta}>
-        <Text style={s.metaText}>{item.estimated_hours ?? 1} hr · ₦{(item.estimated_cost ?? 0).toLocaleString()}</Text>
+  if (isLoading) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
-
-      <View style={s.actionRow}>
-        <TouchableOpacity
-          style={s.rejectBtn}
-          onPress={() => respond({ id: item.id, status: "rejected" })}
-        >
-          <Feather name="x" size={16} color={colors.destructive} />
-          <Text style={s.rejectBtnText}>Decline</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={s.acceptBtn}
-          onPress={() => respond({ id: item.id, status: "accepted" })}
-        >
-          <Feather name="check" size={16} color={colors.primaryForeground} />
-          <Text style={s.acceptBtnText}>Accept</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderActive = ({ item }: { item: BookingRequest }) => (
-    <View style={s.activeCard}>
-      <View style={s.activeBadgeRow}>
-        <View style={[s.activeBadge, item.status === "ongoing" ? s.ongoingBadge : s.acceptedBadge]}>
-          <Text style={s.activeBadgeText}>
-            {item.status === "ongoing" ? "Ongoing" : "Accepted"}
-          </Text>
-        </View>
-      </View>
-      <View style={s.routeBox}>
-        <View style={s.routeRow}>
-          <View style={[s.routeDot, { backgroundColor: colors.primary }]} />
-          <Text style={s.routeText} numberOfLines={1}>{item.pickup_location}</Text>
-        </View>
-        <View style={s.routeLine} />
-        <View style={s.routeRow}>
-          <View style={[s.routeDot, { backgroundColor: colors.destructive }]} />
-          <Text style={s.routeText} numberOfLines={1}>{item.destination}</Text>
-        </View>
-      </View>
-      <View style={s.activeActions}>
-        {item.status === "accepted" && (
-          <TouchableOpacity
-            style={s.startBtn}
-            onPress={() => respond({ id: item.id, status: "ongoing" })}
-          >
-            <Text style={s.startBtnText}>Start Trip</Text>
-          </TouchableOpacity>
-        )}
-        {item.status === "ongoing" && (
-          <TouchableOpacity
-            style={s.doneBtn}
-            onPress={() => respond({ id: item.id, status: "completed" })}
-          >
-            <Text style={s.doneBtnText}>Complete Trip</Text>
-          </TouchableOpacity>
-        )}
-        {item.client && (
-          <TouchableOpacity
-            style={s.callBtn}
-            onPress={() => Linking.openURL(`tel:${item.client!.phone}`)}
-          >
-            <Feather name="phone" size={16} color={colors.primaryForeground} />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
+    );
+  }
 
   return (
     <FlatList
       style={[s.container, { paddingTop: Platform.OS === "web" ? 67 : 0 }]}
-      data={[]}
-      renderItem={null}
-      ListHeaderComponent={
-        <>
-          {pending.length > 0 && (
-            <>
-              <Text style={s.sectionHeader}>New Requests</Text>
-              {pending.map((item) => (
-                <View key={item.id}>{renderPending({ item })}</View>
-              ))}
-            </>
-          )}
-          {active.length > 0 && (
-            <>
-              <Text style={s.sectionHeader}>Active Trip</Text>
-              {active.map((item) => (
-                <View key={item.id}>{renderActive({ item })}</View>
-              ))}
-            </>
-          )}
-          {pending.length === 0 && active.length === 0 && !isLoading && (
-            <View style={s.empty}>
-              <Feather name="bell" size={40} color={colors.mutedForeground} />
-              <Text style={s.emptyTitle}>No requests yet</Text>
-              <Text style={s.emptySub}>Go online to start receiving booking requests.</Text>
-            </View>
-          )}
-          {history.length > 0 && (
-            <>
-              <Text style={s.sectionHeader}>Past Bookings</Text>
-              {history.slice(0, 10).map((item) => (
-                <View key={item.id} style={s.historyItem}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.historyRoute} numberOfLines={1}>
-                      {item.pickup_location} → {item.destination}
-                    </Text>
-                    <Text style={s.historyStatus}>{item.status}</Text>
-                  </View>
-                  <Text style={s.historyAmount}>₦{(item.estimated_cost ?? 0).toLocaleString()}</Text>
+      data={listData}
+      keyExtractor={(item, i) => {
+        if (item.type === "header") return `header-${item.title}`;
+        if (item.type === "history") return `history-${item.item.id}`;
+        return item.item.id;
+      }}
+      renderItem={({ item }) => {
+        if (item.type === "header") {
+          return <Text style={s.sectionHeader}>{item.title}</Text>;
+        }
+
+        if (item.type === "pending") {
+          const b = item.item;
+          return (
+            <View style={s.requestCard}>
+              <View style={s.requestTop}>
+                <View style={s.newBadge}>
+                  <View style={s.pulseDot} />
+                  <Text style={s.newBadgeText}>New Request</Text>
                 </View>
-              ))}
-            </>
-          )}
-        </>
+                <Text style={s.timeText}>
+                  {new Date(b.created_at).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+              </View>
+
+              {b.client && (
+                <View style={s.clientRow}>
+                  <View style={s.clientAvatar}>
+                    <Text style={s.clientInitial}>{b.client.full_name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.clientName}>{b.client.full_name}</Text>
+                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${b.client!.phone}`)}>
+                      <Text style={s.clientPhone}>{b.client.phone}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <View style={s.routeBox}>
+                <View style={s.routeRow}>
+                  <View style={[s.routeDot, { backgroundColor: colors.primary }]} />
+                  <Text style={s.routeText} numberOfLines={1}>{b.pickup_location}</Text>
+                </View>
+                <View style={s.routeLine} />
+                <View style={s.routeRow}>
+                  <View style={[s.routeDot, { backgroundColor: colors.destructive }]} />
+                  <Text style={s.routeText} numberOfLines={1}>{b.destination}</Text>
+                </View>
+              </View>
+
+              <View style={s.tripMeta}>
+                <Text style={s.metaText}>{b.estimated_hours ?? 1} hr · ₦{(b.estimated_cost ?? 0).toLocaleString()}</Text>
+              </View>
+
+              <View style={s.actionRow}>
+                <TouchableOpacity style={s.declineBtn} onPress={() => respond({ id: b.id, status: "rejected" })}>
+                  <Text style={s.declineBtnText}>Decline</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.acceptBtn} onPress={() => respond({ id: b.id, status: "accepted" })}>
+                  <Text style={s.acceptBtnText}>Accept</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        }
+
+        if (item.type === "active") {
+          const b = item.item;
+          const isOngoing = b.status === "ongoing";
+          return (
+            <View style={[s.activeCard, isOngoing && s.activeCardOngoing]}>
+              <View style={s.activeBadgeRow}>
+                <View style={[s.activeBadge, isOngoing ? s.badgeOngoing : s.badgeAccepted]}>
+                  <Text style={[s.activeBadgeText, { color: isOngoing ? "#7C3AED" : "#2563EB" }]}>
+                    {isOngoing ? "In Progress" : "Accepted"}
+                  </Text>
+                </View>
+              </View>
+              <View style={s.routeBox}>
+                <View style={s.routeRow}>
+                  <View style={[s.routeDot, { backgroundColor: colors.primary }]} />
+                  <Text style={s.routeText} numberOfLines={1}>{b.pickup_location}</Text>
+                </View>
+                <View style={s.routeLine} />
+                <View style={s.routeRow}>
+                  <View style={[s.routeDot, { backgroundColor: colors.destructive }]} />
+                  <Text style={s.routeText} numberOfLines={1}>{b.destination}</Text>
+                </View>
+              </View>
+              <View style={s.activeActions}>
+                {b.status === "accepted" && (
+                  <TouchableOpacity style={s.startBtn} onPress={() => respond({ id: b.id, status: "ongoing" })}>
+                    <Text style={s.startBtnText}>Start Trip</Text>
+                  </TouchableOpacity>
+                )}
+                {b.status === "ongoing" && (
+                  <TouchableOpacity style={s.completeBtn} onPress={() => respond({ id: b.id, status: "completed" })}>
+                    <Text style={s.completeBtnText}>Complete Trip</Text>
+                  </TouchableOpacity>
+                )}
+                {b.client && (
+                  <TouchableOpacity style={s.callBtn} onPress={() => Linking.openURL(`tel:${b.client!.phone}`)}>
+                    <Feather name="phone" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          );
+        }
+
+        if (item.type === "history") {
+          const b = item.item;
+          const statusColors: Record<string, string> = {
+            completed: colors.success,
+            cancelled: colors.destructive,
+            rejected: colors.destructive,
+          };
+          return (
+            <View style={s.historyRow}>
+              <View style={[s.historyDot, { backgroundColor: statusColors[b.status] ?? colors.mutedForeground }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.historyRoute} numberOfLines={1}>{b.pickup_location} → {b.destination}</Text>
+                <Text style={s.historyMeta} numberOfLines={1}>
+                  {new Date(b.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short" })} · {b.status}
+                </Text>
+              </View>
+              <Text style={s.historyAmount}>₦{(b.estimated_cost ?? 0).toLocaleString()}</Text>
+            </View>
+          );
+        }
+
+        return null;
+      }}
+      ListEmptyComponent={
+        <View style={s.empty}>
+          <Feather name="bell" size={40} color={colors.border} />
+          <Text style={s.emptyTitle}>No requests yet</Text>
+          <Text style={s.emptySub}>Go online to start receiving booking requests.</Text>
+        </View>
       }
-      contentContainerStyle={[
-        { paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0) },
-      ]}
+      contentContainerStyle={{
+        paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0),
+        flexGrow: listData.length === 0 ? 1 : undefined,
+      }}
       refreshControl={
-        <RefreshControl refreshing={isLoading || isRefetching} onRefresh={refetch} tintColor={colors.primary} />
+        <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
       }
     />
   );
@@ -240,124 +252,144 @@ export default function DriverBookingsScreen() {
 function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    center: { flex: 1, alignItems: "center", justifyContent: "center" },
+
     sectionHeader: {
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: "Inter_600SemiBold",
       color: colors.mutedForeground,
       textTransform: "uppercase",
       letterSpacing: 0.5,
-      paddingHorizontal: 16,
-      paddingTop: 16,
-      paddingBottom: 8,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 10,
     },
-    pendingCard: {
+
+    requestCard: {
       backgroundColor: colors.card,
+      marginHorizontal: 16,
+      marginBottom: 12,
       borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
       padding: 16,
-      marginHorizontal: 16,
-      marginBottom: 12,
     },
-    requestHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-    newBadge: { backgroundColor: "#fef3c7", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-    newBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#d97706" },
+    requestTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+    newBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#FEF3C7", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+    pulseDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#D97706" },
+    newBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#D97706" },
     timeText: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-    clientRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
+
+    clientRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
     clientAvatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 38,
+      height: 38,
+      borderRadius: 19,
       backgroundColor: colors.accent,
       alignItems: "center",
       justifyContent: "center",
     },
     clientInitial: { fontSize: 16, fontFamily: "Inter_700Bold", color: colors.primary },
     clientName: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground },
-    clientPhone: { fontSize: 13, color: colors.primary, fontFamily: "Inter_400Regular" },
-    routeBox: { marginBottom: 10 },
+    clientPhone: { fontSize: 13, color: colors.primary, fontFamily: "Inter_400Regular", marginTop: 2 },
+
+    routeBox: { marginBottom: 12 },
     routeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    routeDot: { width: 8, height: 8, borderRadius: 4 },
+    routeDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
     routeLine: { width: 1, height: 12, backgroundColor: colors.border, marginLeft: 3.5, marginVertical: 2 },
-    routeText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: colors.foreground },
-    tripMeta: { paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border, marginBottom: 12 },
-    metaText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: colors.foreground },
+    routeText: { flex: 1, fontSize: 13, fontFamily: "Inter_500Medium", color: colors.foreground },
+
+    tripMeta: {
+      paddingTop: 10,
+      marginBottom: 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    metaText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: colors.foreground },
+
     actionRow: { flexDirection: "row", gap: 10 },
-    rejectBtn: {
+    declineBtn: {
       flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 12,
+      paddingVertical: 13,
       borderRadius: 10,
       borderWidth: 1.5,
       borderColor: colors.destructive,
+      alignItems: "center",
     },
-    rejectBtnText: { color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 14 },
+    declineBtnText: { color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 14 },
     acceptBtn: {
       flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 12,
+      paddingVertical: 13,
       borderRadius: 10,
       backgroundColor: colors.primary,
+      alignItems: "center",
     },
-    acceptBtnText: { color: colors.primaryForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 },
+    acceptBtnText: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 14 },
+
     activeCard: {
       backgroundColor: colors.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 16,
       marginHorizontal: 16,
       marginBottom: 12,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: "#3B82F6",
+      padding: 16,
     },
-    activeBadgeRow: { marginBottom: 10 },
+    activeCardOngoing: { borderColor: "#8B5CF6" },
+    activeBadgeRow: { marginBottom: 12 },
     activeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: "flex-start" },
-    ongoingBadge: { backgroundColor: "#ede9fe" },
-    acceptedBadge: { backgroundColor: "#dbeafe" },
-    activeBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.foreground },
-    activeActions: { flexDirection: "row", gap: 10, marginTop: 12 },
+    badgeOngoing: { backgroundColor: "#EDE9FE" },
+    badgeAccepted: { backgroundColor: "#DBEAFE" },
+    activeBadgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+    activeActions: { flexDirection: "row", gap: 10, marginTop: 14 },
     startBtn: {
       flex: 1,
-      paddingVertical: 12,
+      paddingVertical: 13,
       borderRadius: 10,
       backgroundColor: colors.primary,
       alignItems: "center",
     },
-    startBtnText: { color: colors.primaryForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 },
-    doneBtn: {
+    startBtnText: { color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 },
+    completeBtn: {
       flex: 1,
-      paddingVertical: 12,
+      paddingVertical: 13,
       borderRadius: 10,
       backgroundColor: colors.success,
       alignItems: "center",
     },
-    doneBtnText: { color: colors.successForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 },
+    completeBtnText: { color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 14 },
     callBtn: {
-      width: 44,
-      height: 44,
+      width: 46,
+      height: 46,
       borderRadius: 10,
       backgroundColor: colors.primary,
       alignItems: "center",
       justifyContent: "center",
     },
-    historyItem: {
+
+    historyRow: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: 20,
+      paddingVertical: 13,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      gap: 12,
     },
-    historyRoute: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.foreground },
-    historyStatus: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 2, textTransform: "capitalize" },
+    historyDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+    historyRoute: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground },
+    historyMeta: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 2, textTransform: "capitalize" },
     historyAmount: { fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground },
-    empty: { alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 8 },
+
+    empty: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingTop: 80,
+      gap: 10,
+      paddingHorizontal: 32,
+    },
     emptyTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold", color: colors.foreground },
-    emptySub: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 32 },
+    emptySub: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: "center" },
   });
 }

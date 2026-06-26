@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  StatusBar,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -44,37 +45,22 @@ export default function DriverEarningsScreen() {
       this_month: raw.this_month ?? raw.thisMonth ?? 0,
       completed_trips: raw.completed_trips ?? raw.completedTrips ?? 0,
       pending_payout: raw.pending_payout ?? raw.pendingPayout ?? 0,
-      transactions: Array.isArray(raw.transactions)
-        ? raw.transactions
-        : Array.isArray(raw)
-        ? raw
-        : [],
+      transactions: Array.isArray(raw.transactions) ? raw.transactions : Array.isArray(raw) ? raw : [],
     }),
   });
 
   const s = makeStyles(colors);
-
-  if (isLoading) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
   const txns = data?.transactions ?? [];
 
-  const renderTxn = ({ item }: { item: Transaction }) => {
+  const renderTxn = ({ item, index }: { item: Transaction; index: number }) => {
     const statusColor =
-      item.status === "paid"
-        ? colors.success
-        : item.status === "processing"
-        ? colors.warning
-        : colors.mutedForeground;
+      item.status === "paid" ? colors.success
+      : item.status === "processing" ? colors.warning
+      : colors.mutedForeground;
 
     return (
-      <View style={s.txnItem}>
-        <View style={s.txnIcon}>
+      <View style={[s.txnRow, index < txns.length - 1 && s.txnBorder]}>
+        <View style={s.txnIconBox}>
           <Feather name="navigation" size={14} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
@@ -109,50 +95,58 @@ export default function DriverEarningsScreen() {
         <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
       }
       ListHeaderComponent={
-        <View style={s.header}>
-          <View style={s.heroCard}>
+        <>
+          <StatusBar barStyle="light-content" />
+          {/* Dark earnings hero */}
+          <View style={s.hero}>
             <Text style={s.heroLabel}>Total Earned</Text>
-            <Text style={s.heroAmount}>₦{(data?.total_earned ?? 0).toLocaleString()}</Text>
+            <Text style={s.heroAmount}>
+              {isLoading ? "–" : `₦${(data?.total_earned ?? 0).toLocaleString()}`}
+            </Text>
             <Text style={s.heroSub}>{data?.completed_trips ?? 0} trips completed</Text>
-          </View>
 
-          <View style={s.statsRow}>
-            <View style={s.statCard}>
-              <Text style={s.statLabel}>This Week</Text>
-              <Text style={s.statAmount}>₦{(data?.this_week ?? 0).toLocaleString()}</Text>
-            </View>
-            <View style={s.statCard}>
-              <Text style={s.statLabel}>This Month</Text>
-              <Text style={s.statAmount}>₦{(data?.this_month ?? 0).toLocaleString()}</Text>
-            </View>
-          </View>
-
-          {(data?.pending_payout ?? 0) > 0 && (
-            <View style={s.payoutBanner}>
-              <Feather name="clock" size={16} color={colors.warning} />
-              <View style={{ flex: 1 }}>
-                <Text style={s.payoutTitle}>Pending Payout</Text>
-                <Text style={s.payoutAmount}>₦{(data?.pending_payout ?? 0).toLocaleString()}</Text>
+            <View style={s.heroStats}>
+              <View style={s.heroStat}>
+                <Text style={s.heroStatLabel}>This Week</Text>
+                <Text style={s.heroStatValue}>₦{(data?.this_week ?? 0).toLocaleString()}</Text>
               </View>
+              <View style={s.heroStatDivider} />
+              <View style={s.heroStat}>
+                <Text style={s.heroStatLabel}>This Month</Text>
+                <Text style={s.heroStatValue}>₦{(data?.this_month ?? 0).toLocaleString()}</Text>
+              </View>
+              {(data?.pending_payout ?? 0) > 0 && (
+                <>
+                  <View style={s.heroStatDivider} />
+                  <View style={s.heroStat}>
+                    <Text style={s.heroStatLabel}>Pending</Text>
+                    <Text style={[s.heroStatValue, { color: colors.warning }]}>
+                      ₦{(data?.pending_payout ?? 0).toLocaleString()}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
-          )}
+          </View>
 
           {txns.length > 0 && (
-            <Text style={s.sectionTitle}>Transaction History</Text>
+            <Text style={s.txnHeader}>Transaction History</Text>
           )}
-        </View>
+        </>
       }
       ListEmptyComponent={
         !isLoading ? (
           <View style={s.empty}>
-            <Feather name="dollar-sign" size={40} color={colors.mutedForeground} />
+            <Feather name="dollar-sign" size={40} color={colors.border} />
             <Text style={s.emptyTitle}>No earnings yet</Text>
             <Text style={s.emptySub}>Complete trips to see your earnings here.</Text>
           </View>
         ) : null
       }
-      contentContainerStyle={{ paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0) }}
-      scrollEnabled={!!txns.length}
+      contentContainerStyle={{
+        paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0),
+        flexGrow: txns.length === 0 ? 1 : undefined,
+      }}
     />
   );
 }
@@ -160,60 +154,51 @@ export default function DriverEarningsScreen() {
 function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    center: { flex: 1, alignItems: "center", justifyContent: "center" },
-    header: { padding: 16, gap: 14 },
-    heroCard: {
-      backgroundColor: colors.primary,
-      borderRadius: 16,
-      padding: 24,
-      alignItems: "center",
+
+    hero: {
+      backgroundColor: colors.dark,
+      paddingHorizontal: 24,
+      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 76 : 24,
+      paddingBottom: 28,
     },
-    heroLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: colors.primaryForeground, opacity: 0.8 },
-    heroAmount: { fontSize: 36, fontFamily: "Inter_700Bold", color: colors.primaryForeground, marginTop: 6 },
-    heroSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: colors.primaryForeground, opacity: 0.7, marginTop: 4 },
-    statsRow: { flexDirection: "row", gap: 12 },
-    statCard: {
-      flex: 1,
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 14,
-    },
-    statLabel: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginBottom: 6 },
-    statAmount: { fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground },
-    payoutBanner: {
+    heroLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.5)", marginBottom: 6 },
+    heroAmount: { fontSize: 44, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+    heroSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.45)", marginTop: 6, marginBottom: 24 },
+    heroStats: {
       flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      backgroundColor: "#fef3c7",
+      backgroundColor: "rgba(255,255,255,0.06)",
       borderRadius: 12,
       padding: 14,
     },
-    payoutTitle: { fontSize: 13, fontFamily: "Inter_500Medium", color: "#92400e" },
-    payoutAmount: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#92400e" },
-    sectionTitle: {
-      fontSize: 13,
+    heroStat: { flex: 1, alignItems: "center" },
+    heroStatLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.45)", marginBottom: 5 },
+    heroStatValue: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
+    heroStatDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.12)", marginHorizontal: 4 },
+
+    txnHeader: {
+      fontSize: 12,
       fontFamily: "Inter_600SemiBold",
       color: colors.mutedForeground,
       textTransform: "uppercase",
       letterSpacing: 0.5,
-      marginTop: 4,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 8,
     },
-    txnItem: {
+
+    txnRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
       paddingVertical: 14,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      gap: 12,
     },
-    txnIcon: {
+    txnBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+    txnIconBox: {
       width: 36,
       height: 36,
       borderRadius: 10,
-      backgroundColor: colors.accent,
+      backgroundColor: colors.muted,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -222,8 +207,15 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
     txnStatus: { fontSize: 12, fontFamily: "Inter_500Medium" },
     txnDate: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
     txnAmount: { fontSize: 15, fontFamily: "Inter_700Bold", color: colors.success },
-    empty: { alignItems: "center", justifyContent: "center", paddingTop: 60, gap: 8 },
+
+    empty: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingTop: 60,
+      gap: 10,
+    },
     emptyTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold", color: colors.foreground },
-    emptySub: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: "center" },
+    emptySub: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
   });
 }

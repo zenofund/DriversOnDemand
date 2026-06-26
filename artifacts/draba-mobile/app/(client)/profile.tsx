@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  StatusBar,
 } from "react-native";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -25,7 +26,6 @@ export default function ClientProfileScreen() {
   const [fullName, setFullName] = useState(clientProfile?.full_name ?? "");
   const [phone, setPhone] = useState(clientProfile?.phone ?? "");
   const [saving, setSaving] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -39,7 +39,7 @@ export default function ClientProfileScreen() {
         phone: phone.trim(),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed to update" }));
+        const err = await res.json().catch(() => ({ error: "Failed" }));
         throw new Error(err.error ?? "Failed to update");
       }
       const updated = await res.json();
@@ -52,14 +52,13 @@ export default function ClientProfileScreen() {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
         style: "destructive",
         onPress: async () => {
-          setLoggingOut(true);
           await supabase.auth.signOut();
           logout();
           router.replace("/(auth)/login");
@@ -68,43 +67,50 @@ export default function ClientProfileScreen() {
     ]);
   };
 
-  const styles = makeStyles(colors);
+  const s = makeStyles(colors);
+  const initials = (clientProfile?.full_name || user?.email || "C").charAt(0).toUpperCase();
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: Platform.OS === "web" ? 67 : 16,
-          paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0),
-        },
-      ]}
+      style={s.container}
+      contentContainerStyle={{ paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0) }}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
-      <View style={styles.avatarSection}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarInitial}>
-            {(clientProfile?.full_name || user?.email || "C").charAt(0).toUpperCase()}
-          </Text>
+      <StatusBar barStyle="dark-content" />
+
+      {/* Avatar section */}
+      <View style={s.avatarSection}>
+        <View style={s.avatarRing}>
+          <Text style={s.avatarText}>{initials}</Text>
         </View>
-        <Text style={styles.name}>{clientProfile?.full_name ?? "Client"}</Text>
-        <Text style={styles.email}>{user?.email ?? ""}</Text>
-        {clientProfile?.nin_verified && (
-          <View style={styles.verifiedBadge}>
+        <Text style={s.userName}>{clientProfile?.full_name ?? "Client"}</Text>
+        <Text style={s.userEmail}>{user?.email ?? ""}</Text>
+        {clientProfile?.nin_verified ? (
+          <View style={s.verifiedBadge}>
             <Feather name="shield" size={12} color={colors.success} />
-            <Text style={styles.verifiedText}>ID Verified</Text>
+            <Text style={s.verifiedText}>ID Verified</Text>
           </View>
+        ) : (
+          <TouchableOpacity
+            style={s.unverifiedBadge}
+            onPress={() => router.push("/(client)/verify-nin")}
+          >
+            <Feather name="shield" size={12} color={colors.warning} />
+            <Text style={s.unverifiedText}>Verify your ID</Text>
+            <Feather name="chevron-right" size={12} color={colors.warning} />
+          </TouchableOpacity>
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personal Information</Text>
+      {/* Form fields */}
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>Personal Information</Text>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Full Name</Text>
+        <View style={s.field}>
+          <Text style={s.label}>Full Name</Text>
           <TextInput
-            style={styles.input}
+            style={s.input}
             value={fullName}
             onChangeText={setFullName}
             placeholder="Your full name"
@@ -113,10 +119,10 @@ export default function ClientProfileScreen() {
           />
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Phone Number</Text>
+        <View style={s.field}>
+          <Text style={s.label}>Phone Number</Text>
           <TextInput
-            style={styles.input}
+            style={s.input}
             value={phone}
             onChangeText={setPhone}
             placeholder="08012345678"
@@ -125,38 +131,46 @@ export default function ClientProfileScreen() {
           />
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
-          <View style={[styles.input, styles.inputDisabled]}>
-            <Text style={styles.inputDisabledText}>{user?.email ?? ""}</Text>
+        <View style={s.field}>
+          <Text style={s.label}>Email</Text>
+          <View style={s.disabledInput}>
+            <Text style={s.disabledInputText}>{user?.email ?? ""}</Text>
           </View>
         </View>
 
         <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.btnDisabled]}
+          style={[s.saveBtn, saving && s.btnDisabled]}
           onPress={handleSave}
           disabled={saving}
+          activeOpacity={0.85}
         >
           {saving ? (
-            <ActivityIndicator color={colors.primaryForeground} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.saveBtnText}>Save Changes</Text>
+            <Text style={s.saveBtnText}>Save Changes</Text>
           )}
         </TouchableOpacity>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-
-        <TouchableOpacity
-          style={[styles.dangerBtn, loggingOut && styles.btnDisabled]}
-          onPress={handleLogout}
-          disabled={loggingOut}
-        >
-          <Feather name="log-out" size={16} color={colors.destructive} />
-          <Text style={styles.dangerBtnText}>Sign Out</Text>
+      {/* Account actions */}
+      <View style={s.menuSection}>
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(client)/bookings")}>
+          <Feather name="calendar" size={18} color={colors.foreground} />
+          <Text style={s.menuItemText}>My Bookings</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
+        <View style={s.menuDivider} />
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(client)/verify-nin")}>
+          <Feather name="shield" size={18} color={colors.foreground} />
+          <Text style={s.menuItemText}>Identity Verification</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+        <Feather name="log-out" size={16} color={colors.destructive} />
+        <Text style={s.logoutText}>Sign Out</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -164,9 +178,14 @@ export default function ClientProfileScreen() {
 function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    content: { padding: 16 },
-    avatarSection: { alignItems: "center", marginBottom: 28 },
-    avatar: {
+
+    avatarSection: {
+      alignItems: "center",
+      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 76 : 24,
+      paddingBottom: 24,
+      paddingHorizontal: 20,
+    },
+    avatarRing: {
       width: 80,
       height: 80,
       borderRadius: 40,
@@ -175,77 +194,102 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       justifyContent: "center",
       marginBottom: 12,
     },
-    avatarInitial: { fontSize: 32, fontFamily: "Inter_700Bold", color: colors.primary },
-    name: { fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground },
-    email: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 4 },
+    avatarText: { fontSize: 32, fontFamily: "Inter_700Bold", color: colors.primary },
+    userName: { fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground },
+    userEmail: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 3 },
     verifiedBadge: {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
-      backgroundColor: colors.muted,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      backgroundColor: "#DCFCE7",
+      paddingHorizontal: 12,
+      paddingVertical: 5,
       borderRadius: 20,
-      marginTop: 8,
+      marginTop: 10,
     },
     verifiedText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.success },
-    section: {
-      backgroundColor: colors.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 16,
-      marginBottom: 16,
+    unverifiedBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      backgroundColor: "#FEF3C7",
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: 20,
+      marginTop: 10,
     },
+    unverifiedText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: colors.warning },
+
+    section: { paddingHorizontal: 20, paddingBottom: 8 },
     sectionTitle: {
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: "Inter_600SemiBold",
       color: colors.mutedForeground,
       textTransform: "uppercase",
       letterSpacing: 0.5,
       marginBottom: 16,
     },
-    field: { marginBottom: 14 },
-    label: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.foreground, marginBottom: 6 },
+    field: { marginBottom: 16 },
+    label: { fontSize: 13, fontFamily: "Inter_500Medium", color: colors.foreground, marginBottom: 7 },
     input: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 8,
+      borderRadius: 10,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: 13,
       fontSize: 15,
       color: colors.foreground,
       fontFamily: "Inter_400Regular",
     },
-    inputDisabled: {
-      opacity: 0.6,
-      justifyContent: "center",
+    disabledInput: {
+      backgroundColor: colors.muted,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
     },
-    inputDisabledText: {
-      fontSize: 15,
-      color: colors.mutedForeground,
-      fontFamily: "Inter_400Regular",
-    },
+    disabledInputText: { fontSize: 15, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
     saveBtn: {
       backgroundColor: colors.primary,
       borderRadius: 10,
-      paddingVertical: 13,
+      paddingVertical: 14,
       alignItems: "center",
       marginTop: 4,
     },
-    saveBtnText: { color: colors.primaryForeground, fontFamily: "Inter_600SemiBold", fontSize: 15 },
-    btnDisabled: { opacity: 0.6 },
-    dangerBtn: {
+    saveBtnText: { color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 },
+    btnDisabled: { opacity: 0.55 },
+
+    menuSection: {
+      marginHorizontal: 20,
+      marginTop: 20,
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    menuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    menuItemText: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium", color: colors.foreground },
+    menuDivider: { height: 1, backgroundColor: colors.border, marginLeft: 16 },
+
+    logoutBtn: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
+      marginHorizontal: 20,
+      marginTop: 16,
+      paddingVertical: 14,
+      borderRadius: 10,
       borderWidth: 1.5,
       borderColor: colors.destructive,
-      borderRadius: 10,
-      paddingVertical: 13,
     },
-    dangerBtnText: { color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 15 },
+    logoutText: { color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 15 },
   });
 }
