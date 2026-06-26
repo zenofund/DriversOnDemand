@@ -1,0 +1,277 @@
+import { useEffect, useState } from 'react';
+import { useLocation } from 'wouter';
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuthStore } from '@/store/authStore';
+import { supabase } from '@/lib/supabase';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
+import { StatusBadge } from '@/components/StatusBadge';
+import { BookingCard } from '@/components/BookingCard';
+import type { BookingWithDetails } from '@shared/schema';
+
+export default function AdminBookings() {
+  const [, setLocation] = useLocation();
+  const { user, role, isLoading } = useAuthStore();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (isLoading) return;
+    
+    if (!user || role !== 'admin') {
+      setLocation('/auth/login');
+    }
+  }, [isLoading, user, role, setLocation]);
+
+  const { data: bookings = [], isLoading: isLoadingBookings } = useQuery<BookingWithDetails[]>({
+    queryKey: ['/api/admin/bookings'],
+    enabled: !!user && role === 'admin',
+  });
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    useAuthStore.getState().logout();
+    setLocation('/auth/login');
+  };
+
+  const filteredBookings = bookings.filter(
+    (booking) =>
+      (booking.start_location ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.destination ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.driver?.full_name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.client?.full_name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const stats = {
+    total: bookings.length,
+    pending: bookings.filter((b) => b.booking_status === 'pending').length,
+    ongoing: bookings.filter((b) => b.booking_status === 'ongoing').length,
+    completed: bookings.filter((b) => b.booking_status === 'completed').length,
+    cancelled: bookings.filter((b) => b.booking_status === 'cancelled').length,
+    totalRevenue: bookings
+      .filter((b) => b.payment_status === 'paid')
+      .reduce((sum, b) => sum + b.total_cost, 0),
+  };
+
+  if (!user || role !== 'admin') {
+    return null;
+  }
+
+  return (
+    <DashboardLayout role="admin" onLogout={handleLogout}>
+      <div className="p-4 sm:p-6 md:p-8">
+          <div className="max-w-7xl mx-auto space-y-8">
+            {/* Header */}
+            <div>
+              <h1 className="text-3xl font-bold font-heading text-foreground">
+                Bookings Management
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Monitor and manage all platform bookings
+              </p>
+            </div>
+
+            {/* Search */}
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search by location, driver, or client..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Total</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-status-warning">{stats.pending}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Ongoing</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-primary">{stats.ongoing}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-status-success">{stats.completed}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-status-error">{stats.cancelled}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold">₦{stats.totalRevenue.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Bookings - Mobile Card View (hidden on md+) */}
+            <div className="block lg:hidden space-y-4">
+              {isLoadingBookings ? (
+                <div className="text-center py-8">Loading...</div>
+              ) : filteredBookings.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12">
+                    <div className="text-center text-muted-foreground">
+                      No bookings found
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <h2 className="text-xl font-semibold">All Bookings</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {filteredBookings.length} booking(s) found
+                    </p>
+                  </div>
+                  {filteredBookings.map((booking) => (
+                    <BookingCard
+                      key={booking.id}
+                      booking={booking}
+                      role="admin"
+                      viewMode="history"
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* Bookings Table - Desktop View (hidden on mobile) */}
+            <Card className="hidden lg:block">
+              <CardHeader>
+                <CardTitle>All Bookings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingBookings ? (
+                  <div className="text-center py-8">Loading...</div>
+                ) : filteredBookings.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No bookings found
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Client</TableHead>
+                          <TableHead>Driver</TableHead>
+                          <TableHead>Route</TableHead>
+                          <TableHead>Distance</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Payment</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredBookings.map((booking) => (
+                          <TableRow key={booking.id}>
+                            <TableCell>
+                              {new Date(booking.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{booking.client?.full_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {booking.client?.phone}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{booking.driver?.full_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {booking.driver?.phone}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="max-w-xs">
+                                <div className="text-sm truncate">{booking.start_location}</div>
+                                <div className="text-sm text-muted-foreground truncate">
+                                  {booking.destination}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {booking.distance_km.toFixed(1)} km
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              ₦{booking.total_cost.toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  booking.payment_status === 'paid'
+                                    ? 'default'
+                                    : booking.payment_status === 'pending'
+                                    ? 'secondary'
+                                    : 'destructive'
+                                }
+                              >
+                                {booking.payment_status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={booking.booking_status} type="booking" />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+    </DashboardLayout>
+  );
+}
