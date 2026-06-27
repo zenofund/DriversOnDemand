@@ -12,8 +12,8 @@ function NativeDriverTabs() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "gauge", selected: "gauge.with.needle.fill" }} />
-        <Label>Dashboard</Label>
+        <Icon sf={{ default: "house", selected: "house.fill" }} />
+        <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="bookings">
         <Icon sf={{ default: "bell", selected: "bell.fill" }} />
@@ -67,17 +67,19 @@ function ClassicDriverTabs() {
       <Tabs.Screen
         name="index"
         options={{
+          tabBarLabel: "Home",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="gauge" tintColor={color} size={24} />
+              <SymbolView name="house" tintColor={color} size={24} />
             ) : (
-              <Feather name="activity" size={22} color={color} />
+              <Feather name="home" size={22} color={color} />
             ),
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
+          tabBarLabel: "Requests",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="bell" tintColor={color} size={24} />
@@ -89,6 +91,7 @@ function ClassicDriverTabs() {
       <Tabs.Screen
         name="earnings"
         options={{
+          tabBarLabel: "Earnings",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="banknote" tintColor={color} size={24} />
@@ -108,6 +111,7 @@ function ClassicDriverTabs() {
             ),
         }}
       />
+      <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="chat" options={{ href: null }} />
       <Tabs.Screen name="reviews" options={{ href: null }} />
     </Tabs>

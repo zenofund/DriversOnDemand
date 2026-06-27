@@ -12,8 +12,8 @@ function NativeClientTabs() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "car", selected: "car.fill" }} />
-        <Label>Book</Label>
+        <Icon sf={{ default: "house", selected: "house.fill" }} />
+        <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="bookings">
         <Icon sf={{ default: "list.bullet", selected: "list.bullet.rectangle.fill" }} />
@@ -63,12 +63,12 @@ function ClassicClientTabs() {
       <Tabs.Screen
         name="index"
         options={{
-          tabBarLabel: "Book",
+          tabBarLabel: "Home",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="car" tintColor={color} size={24} />
+              <SymbolView name="house" tintColor={color} size={24} />
             ) : (
-              <Feather name="navigation" size={22} color={color} />
+              <Feather name="home" size={22} color={color} />
             ),
         }}
       />
@@ -95,6 +95,7 @@ function ClassicClientTabs() {
             ),
         }}
       />
+      <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="booking-confirm" options={{ href: null }} />
       <Tabs.Screen name="active-booking" options={{ href: null }} />
       <Tabs.Screen name="verify-nin" options={{ href: null }} />

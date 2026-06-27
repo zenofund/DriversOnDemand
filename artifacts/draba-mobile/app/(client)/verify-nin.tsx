@@ -53,8 +53,8 @@ export default function VerifyNINScreen() {
 
   const handleSubmit = async () => {
     const cleaned = nin.replace(/\s/g, "");
-    if (cleaned.length !== 11) {
-      Alert.alert("Invalid NIN", "Your NIN must be exactly 11 digits.");
+    if (cleaned.length !== 13) {
+      Alert.alert("Invalid NIN", "Your NIN must be exactly 13 digits.");
       return;
     }
     setSubmitting(true);
@@ -103,7 +103,7 @@ export default function VerifyNINScreen() {
       <View style={s.infoBox}>
         <Feather name="info" size={15} color={colors.primary} />
         <Text style={s.infoText}>
-          Enter your 11-digit National Identification Number (NIN). You can find it on your NIN slip
+          Enter your 13-digit National Identification Number (NIN). You can find it on your NIN slip
           or by dialing *346# on your phone.
         </Text>
       </View>
@@ -113,20 +113,20 @@ export default function VerifyNINScreen() {
         <TextInput
           style={s.input}
           value={nin}
-          onChangeText={(v) => setNin(v.replace(/\D/g, "").slice(0, 11))}
-          placeholder="Enter your 11-digit NIN"
+          onChangeText={(v) => setNin(v.replace(/\D/g, "").slice(0, 13))}
+          placeholder="Enter your 13-digit NIN"
           placeholderTextColor={colors.mutedForeground}
           keyboardType="numeric"
-          maxLength={11}
+          maxLength={13}
           autoCorrect={false}
         />
-        <Text style={s.fieldHint}>{nin.length}/11 digits</Text>
+        <Text style={s.fieldHint}>{nin.length}/13 digits</Text>
       </View>
 
       <TouchableOpacity
-        style={[s.submitBtn, (submitting || nin.length !== 11) && s.submitBtnDisabled]}
+        style={[s.submitBtn, (submitting || nin.length !== 13) && s.submitBtnDisabled]}
         onPress={handleSubmit}
-        disabled={submitting || nin.length !== 11}
+        disabled={submitting || nin.length !== 13}
         activeOpacity={0.85}
       >
         {submitting ? (

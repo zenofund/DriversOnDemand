@@ -81,6 +81,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get reviews received by this driver (ratings from clients)
+  app.get("/api/drivers/me/reviews", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return res.status(401).json({ error: "Unauthorized" });
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      const { data: driver } = await supabase
+        .from("drivers")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!driver) return res.status(404).json({ error: "Driver not found" });
+
+      const { data: ratings, error } = await supabase
+        .from("ratings")
+        .select(`
+          id, booking_id, rating, review, created_at,
+          client:clients(full_name),
+          booking:bookings(start_location, destination)
+        `)
+        .eq("driver_id", driver.id)
+        .eq("rater_role", "client")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const reviews = (ratings || []).map((r: any) => ({
+        id: r.id,
+        booking_id: r.booking_id,
+        rating: r.rating,
+        comment: r.review,
+        created_at: r.created_at,
+        reviewer: r.client ? { full_name: r.client.full_name } : undefined,
+        booking: r.booking ? { pickup_location: r.booking.start_location, destination: r.booking.destination } : undefined,
+      }));
+
+      res.json(reviews);
+    } catch (error) {
+      console.error("[drivers/me/reviews] Error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
   // Get driver stats
   app.get("/api/drivers/stats", async (req, res) => {
     try {
@@ -504,6 +552,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(data);
     } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Mock NIN verification — auto-approves any valid 13-digit NIN for simulation
+  app.post("/api/clients/me/nin", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return res.status(401).json({ error: "Unauthorized" });
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      const { nin } = req.body;
+      if (!nin || typeof nin !== "string") {
+        return res.status(400).json({ error: "NIN is required" });
+      }
+      if (!/^\d{13}$/.test(nin)) {
+        return res.status(400).json({ error: "NIN must be exactly 13 digits" });
+      }
+
+      const { data, error } = await supabase
+        .from("clients")
+        .update({ nin_verified: true, nin_number: nin, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .select()
+        .single();
+
+      if (error) return res.status(500).json({ error: "Failed to update NIN" });
+
+      res.json(data);
+    } catch (error) {
+      console.error("[NIN mock] Error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get reviews submitted by this client (ratings given to drivers)
+  app.get("/api/clients/me/reviews", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return res.status(401).json({ error: "Unauthorized" });
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+      const { data: client } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      const { data: ratings, error } = await supabase
+        .from("ratings")
+        .select(`
+          id, booking_id, rating, review, created_at,
+          driver:drivers(full_name),
+          booking:bookings(start_location, destination)
+        `)
+        .eq("client_id", client.id)
+        .eq("rater_role", "client")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const reviews = (ratings || []).map((r: any) => ({
+        id: r.id,
+        booking_id: r.booking_id,
+        rating: r.rating,
+        comment: r.review,
+        created_at: r.created_at,
+        reviewer: r.driver ? { full_name: r.driver.full_name, role: "client" } : undefined,
+        booking: r.booking ? { pickup_location: r.booking.start_location, destination: r.booking.destination } : undefined,
+      }));
+
+      res.json(reviews);
+    } catch (error) {
+      console.error("[clients/me/reviews] Error:", error);
       res.status(500).json({ error: "Server error" });
     }
   });
