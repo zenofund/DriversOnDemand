@@ -31,7 +31,7 @@ const Marker = isNative ? require("react-native-maps").Marker : null;
 const Circle = isNative ? require("react-native-maps").Circle : null;
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const BOTTOM_SHEET_HEIGHT = 200;
+const BOTTOM_SHEET_HEIGHT = 320;
 
 interface Driver {
   id: string;
@@ -186,7 +186,7 @@ export default function ClientHomeScreen() {
 
   const sheetTranslateY = sheetAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [BOTTOM_SHEET_HEIGHT + 40, 0],
+    outputRange: [BOTTOM_SHEET_HEIGHT + insets.bottom + 40, 0],
   });
 
   // ─── NATIVE MAP UI ────────────────────────────────────────────────
@@ -327,7 +327,13 @@ export default function ClientHomeScreen() {
         {/* Driver bottom sheet */}
         {selectedDriver && (
           <Animated.View
-            style={[nativeS.bottomSheet, { transform: [{ translateY: sheetTranslateY }] }]}
+            style={[
+              nativeS.bottomSheet,
+              {
+                transform: [{ translateY: sheetTranslateY }],
+                paddingBottom: Math.max(insets.bottom, 16) + 12,
+              },
+            ]}
           >
             {/* Handle */}
             <View style={nativeS.sheetHandle} />
@@ -692,7 +698,6 @@ const nativeS = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 16,
-    paddingBottom: 28,
   },
   sheetHandle: {
     width: 36,
