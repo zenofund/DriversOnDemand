@@ -101,11 +101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { data: ratings, error } = await supabase
         .from("ratings")
-        .select(`
-          id, booking_id, rating, review, created_at,
-          client:clients(full_name),
-          booking:bookings(start_location, destination)
-        `)
+        .select(`id, booking_id, rating, review, created_at, client:clients(full_name)`)
         .eq("driver_id", driver.id)
         .eq("rater_role", "client")
         .order("created_at", { ascending: false });
@@ -119,7 +115,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comment: r.review,
         created_at: r.created_at,
         reviewer: r.client ? { full_name: r.client.full_name } : undefined,
-        booking: r.booking ? { pickup_location: r.booking.start_location, destination: r.booking.destination } : undefined,
       }));
 
       res.json(reviews);
@@ -610,11 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { data: ratings, error } = await supabase
         .from("ratings")
-        .select(`
-          id, booking_id, rating, review, created_at,
-          driver:drivers(full_name),
-          booking:bookings(start_location, destination)
-        `)
+        .select(`id, booking_id, rating, review, created_at, driver:drivers(full_name)`)
         .eq("client_id", client.id)
         .eq("rater_role", "client")
         .order("created_at", { ascending: false });
@@ -628,7 +619,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comment: r.review,
         created_at: r.created_at,
         reviewer: r.driver ? { full_name: r.driver.full_name, role: "client" } : undefined,
-        booking: r.booking ? { pickup_location: r.booking.start_location, destination: r.booking.destination } : undefined,
       }));
 
       res.json(reviews);

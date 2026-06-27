@@ -1,0 +1,3 @@
+- [Mobile bottom sheet tab bar overlap](bottom-sheet-tab-bar.md) — use `useBottomTabBarHeight()` from `@react-navigation/bottom-tabs` to lift absolute-positioned sheets above the tab bar
+- [Supabase ratings join](supabase-ratings-join.md) — ratings table has no FK to bookings; joining `booking:bookings(...)` errors; use only `client:clients(full_name)` join (same as working `/api/ratings/driver/:driverId`)
+- [Mobile earnings API](mobile-earnings-api.md) — `/api/drivers/earnings` does not exist; use `/api/payouts/pending` (returns `{transactions, total_pending, transaction_count}`) and `/api/payouts/history` (returns `Payout[]` with `{id, amount, status, created_at}`)

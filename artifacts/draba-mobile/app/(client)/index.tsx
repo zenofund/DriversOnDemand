@@ -18,6 +18,7 @@ import { router } from "expo-router";
 import * as Location from "expo-location";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/queryClient";
 import { useAuthStore, type ClientProfile } from "@/store/authStore";
@@ -74,6 +75,7 @@ function assignDriverCoords(
 export default function ClientHomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { profile } = useAuthStore();
   const clientProfile = profile as ClientProfile | null;
   const { setPickupLocation, setDestination, setSelectedDriver } = useBookingStore();
@@ -186,7 +188,7 @@ export default function ClientHomeScreen() {
 
   const sheetTranslateY = sheetAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [BOTTOM_SHEET_HEIGHT + insets.bottom + 40, 0],
+    outputRange: [BOTTOM_SHEET_HEIGHT + tabBarHeight + 40, 0],
   });
 
   // ─── NATIVE MAP UI ────────────────────────────────────────────────
@@ -330,8 +332,9 @@ export default function ClientHomeScreen() {
             style={[
               nativeS.bottomSheet,
               {
+                bottom: tabBarHeight,
                 transform: [{ translateY: sheetTranslateY }],
-                paddingBottom: Math.max(insets.bottom, 16) + 12,
+                paddingBottom: 20,
               },
             ]}
           >

@@ -8,130 +8,243 @@ import {
   RefreshControl,
   Platform,
   StatusBar,
+  TouchableOpacity,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/queryClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch, apiRequest } from "@/lib/queryClient";
 import { useColors } from "@/hooks/useColors";
 
-interface EarningsData {
-  total_earned: number;
-  this_week: number;
-  this_month: number;
-  completed_trips: number;
-  pending_payout: number;
-  transactions: Transaction[];
+interface PendingSettlement {
+  id: string;
+  driver_share: number;
+  total_fare: number;
+  created_at: string;
+  booking_id?: string;
 }
 
-interface Transaction {
+interface PendingData {
+  transactions: PendingSettlement[];
+  total_pending: number;
+  transaction_count: number;
+}
+
+interface Payout {
   id: string;
-  booking_id: string;
   amount: number;
-  status: "pending" | "paid" | "processing";
+  status: string;
   created_at: string;
-  pickup_location?: string;
-  destination?: string;
+  paystack_reference?: string;
 }
 
 export default function DriverEarningsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
 
-  const { data, isLoading, refetch, isRefetching } = useQuery<EarningsData>({
-    queryKey: ["/api/drivers/earnings"],
-    queryFn: () => apiFetch<EarningsData>("/drivers/earnings"),
-    select: (raw: any) => ({
-      total_earned: raw.total_earned ?? raw.totalEarned ?? 0,
-      this_week: raw.this_week ?? raw.thisWeek ?? 0,
-      this_month: raw.this_month ?? raw.thisMonth ?? 0,
-      completed_trips: raw.completed_trips ?? raw.completedTrips ?? 0,
-      pending_payout: raw.pending_payout ?? raw.pendingPayout ?? 0,
-      transactions: Array.isArray(raw.transactions) ? raw.transactions : Array.isArray(raw) ? raw : [],
-    }),
+  const {
+    data: pendingData,
+    isLoading: loadingPending,
+    refetch: refetchPending,
+    isRefetching: isRefetchingPending,
+  } = useQuery<PendingData>({
+    queryKey: ["/api/payouts/pending"],
+    queryFn: () => apiFetch<PendingData>("/payouts/pending"),
   });
 
+  const {
+    data: payouts = [],
+    isLoading: loadingHistory,
+    refetch: refetchHistory,
+    isRefetching: isRefetchingHistory,
+  } = useQuery<Payout[]>({
+    queryKey: ["/api/payouts/history"],
+    queryFn: () => apiFetch<Payout[]>("/payouts/history"),
+  });
+
+  const requestPayoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/payouts/request", {});
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        throw new Error(err.error ?? "Request failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/payouts/pending"] });
+      qc.invalidateQueries({ queryKey: ["/api/payouts/history"] });
+    },
+  });
+
+  const isLoading = loadingPending || loadingHistory;
+  const isRefetching = isRefetchingPending || isRefetchingHistory;
+
+  const refetch = () => {
+    refetchPending();
+    refetchHistory();
+  };
+
+  const pending = pendingData?.transactions ?? [];
+  const totalPending = pendingData?.total_pending ?? 0;
+
+  const totalPaid = payouts
+    .filter((p) => p.status === "completed" || p.status === "success")
+    .reduce((sum, p) => sum + (p.amount ?? 0), 0);
+
   const s = makeStyles(colors, insets.top + 20);
-  const txns = data?.transactions ?? [];
 
-  const renderTxn = ({ item, index }: { item: Transaction; index: number }) => {
-    const statusColor =
-      item.status === "paid" ? colors.success
-      : item.status === "processing" ? colors.warning
-      : colors.mutedForeground;
+  type ListItem =
+    | { _type: "payout"; data: Payout }
+    | { _type: "pending"; data: PendingSettlement };
 
-    return (
-      <View style={[s.txnRow, index < txns.length - 1 && s.txnBorder]}>
-        <View style={s.txnIconBox}>
-          <Feather name="navigation" size={14} color={colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          {item.pickup_location ? (
-            <Text style={s.txnRoute} numberOfLines={1}>
-              {item.pickup_location} → {item.destination}
-            </Text>
-          ) : (
-            <Text style={s.txnRoute}>Trip #{item.booking_id?.slice(-6)}</Text>
-          )}
-          <View style={s.txnMeta}>
-            <Text style={[s.txnStatus, { color: statusColor }]}>
-              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-            </Text>
-            <Text style={s.txnDate}>
-              · {new Date(item.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
-            </Text>
+  const allItems: ListItem[] = [
+    ...payouts.map((p) => ({ _type: "payout" as const, data: p })),
+    ...pending.map((p) => ({ _type: "pending" as const, data: p })),
+  ].sort(
+    (a, b) =>
+      new Date(b.data.created_at).getTime() -
+      new Date(a.data.created_at).getTime()
+  );
+
+  const renderItem = ({
+    item,
+    index,
+  }: {
+    item: ListItem;
+    index: number;
+  }) => {
+    const isLast = index === allItems.length - 1;
+    if (item._type === "payout") {
+      const p = item.data;
+      const isCompleted = p.status === "completed" || p.status === "success";
+      const statusColor = isCompleted
+        ? colors.success
+        : p.status === "pending"
+        ? colors.warning
+        : colors.mutedForeground;
+      return (
+        <View style={[s.txnRow, !isLast && s.txnBorder]}>
+          <View style={s.txnIconBox}>
+            <Feather name="credit-card" size={14} color={colors.primary} />
           </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.txnRoute}>Payout #{p.id.slice(-6)}</Text>
+            <View style={s.txnMeta}>
+              <Text style={[s.txnStatus, { color: statusColor }]}>
+                {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+              </Text>
+              <Text style={s.txnDate}>
+                ·{" "}
+                {new Date(p.created_at).toLocaleDateString("en-NG", {
+                  day: "numeric",
+                  month: "short",
+                })}
+              </Text>
+            </View>
+          </View>
+          <Text style={s.txnAmount}>₦{(p.amount ?? 0).toLocaleString()}</Text>
         </View>
-        <Text style={s.txnAmount}>+₦{(item.amount ?? 0).toLocaleString()}</Text>
-      </View>
-    );
+      );
+    } else {
+      const t = item.data;
+      return (
+        <View style={[s.txnRow, !isLast && s.txnBorder]}>
+          <View style={s.txnIconBox}>
+            <Feather name="navigation" size={14} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.txnRoute}>
+              Trip #{(t.booking_id ?? t.id)?.slice(-6)}
+            </Text>
+            <View style={s.txnMeta}>
+              <Text style={[s.txnStatus, { color: colors.warning }]}>
+                Pending payout
+              </Text>
+              <Text style={s.txnDate}>
+                ·{" "}
+                {new Date(t.created_at).toLocaleDateString("en-NG", {
+                  day: "numeric",
+                  month: "short",
+                })}
+              </Text>
+            </View>
+          </View>
+          <Text style={s.txnAmount}>
+            +₦{(t.driver_share ?? 0).toLocaleString()}
+          </Text>
+        </View>
+      );
+    }
   };
 
   return (
     <FlatList
       style={s.container}
-      data={txns}
-      keyExtractor={(t) => t.id}
-      renderItem={renderTxn}
+      data={allItems}
+      keyExtractor={(item, i) => `${item._type}-${item.data.id}-${i}`}
+      renderItem={renderItem}
       refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          tintColor={colors.primary}
+        />
       }
       ListHeaderComponent={
         <>
           <StatusBar barStyle="light-content" />
-          {/* Dark earnings hero */}
           <View style={s.hero}>
-            <Text style={s.heroLabel}>Total Earned</Text>
+            <Text style={s.heroLabel}>Total Paid Out</Text>
             <Text style={s.heroAmount}>
-              {isLoading ? "–" : `₦${(data?.total_earned ?? 0).toLocaleString()}`}
+              {isLoading ? "–" : `₦${totalPaid.toLocaleString()}`}
             </Text>
-            <Text style={s.heroSub}>{data?.completed_trips ?? 0} trips completed</Text>
+            <Text style={s.heroSub}>
+              {payouts.length} payout{payouts.length !== 1 ? "s" : ""} received
+            </Text>
 
             <View style={s.heroStats}>
               <View style={s.heroStat}>
-                <Text style={s.heroStatLabel}>This Week</Text>
-                <Text style={s.heroStatValue}>₦{(data?.this_week ?? 0).toLocaleString()}</Text>
+                <Text style={s.heroStatLabel}>Pending</Text>
+                <Text style={[s.heroStatValue, { color: colors.warning }]}>
+                  ₦{totalPending.toLocaleString()}
+                </Text>
               </View>
               <View style={s.heroStatDivider} />
               <View style={s.heroStat}>
-                <Text style={s.heroStatLabel}>This Month</Text>
-                <Text style={s.heroStatValue}>₦{(data?.this_month ?? 0).toLocaleString()}</Text>
+                <Text style={s.heroStatLabel}>Trips</Text>
+                <Text style={s.heroStatValue}>
+                  {pendingData?.transaction_count ?? 0}
+                </Text>
               </View>
-              {(data?.pending_payout ?? 0) > 0 && (
-                <>
-                  <View style={s.heroStatDivider} />
-                  <View style={s.heroStat}>
-                    <Text style={s.heroStatLabel}>Pending</Text>
-                    <Text style={[s.heroStatValue, { color: colors.warning }]}>
-                      ₦{(data?.pending_payout ?? 0).toLocaleString()}
-                    </Text>
-                  </View>
-                </>
-              )}
             </View>
+
+            {totalPending > 0 && (
+              <TouchableOpacity
+                style={[
+                  s.payoutBtn,
+                  requestPayoutMutation.isPending && s.payoutBtnDisabled,
+                ]}
+                onPress={() => requestPayoutMutation.mutate()}
+                disabled={requestPayoutMutation.isPending}
+                activeOpacity={0.85}
+              >
+                {requestPayoutMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Feather name="download" size={14} color="#FFFFFF" />
+                    <Text style={s.payoutBtnText}>
+                      Request Payout · ₦{totalPending.toLocaleString()}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
-          {txns.length > 0 && (
+          {allItems.length > 0 && (
             <Text style={s.txnHeader}>Transaction History</Text>
           )}
         </>
@@ -141,13 +254,19 @@ export default function DriverEarningsScreen() {
           <View style={s.empty}>
             <Feather name="dollar-sign" size={40} color={colors.border} />
             <Text style={s.emptyTitle}>No earnings yet</Text>
-            <Text style={s.emptySub}>Complete trips to see your earnings here.</Text>
+            <Text style={s.emptySub}>
+              Complete trips to see your earnings here.
+            </Text>
           </View>
-        ) : null
+        ) : (
+          <View style={s.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        )
       }
       contentContainerStyle={{
         paddingBottom: 100 + (Platform.OS === "web" ? 34 : 0),
-        flexGrow: txns.length === 0 ? 1 : undefined,
+        flexGrow: allItems.length === 0 ? 1 : undefined,
       }}
     />
   );
@@ -156,6 +275,7 @@ export default function DriverEarningsScreen() {
 function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
 
     hero: {
       backgroundColor: colors.dark,
@@ -163,19 +283,62 @@ function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
       paddingTop: topPad,
       paddingBottom: 28,
     },
-    heroLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.5)", marginBottom: 6 },
+    heroLabel: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: "rgba(255,255,255,0.5)",
+      marginBottom: 6,
+    },
     heroAmount: { fontSize: 44, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
-    heroSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.45)", marginTop: 6, marginBottom: 24 },
+    heroSub: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      color: "rgba(255,255,255,0.45)",
+      marginTop: 6,
+      marginBottom: 20,
+    },
     heroStats: {
       flexDirection: "row",
       backgroundColor: "rgba(255,255,255,0.06)",
       borderRadius: 12,
       padding: 14,
+      marginBottom: 16,
     },
     heroStat: { flex: 1, alignItems: "center" },
-    heroStatLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.45)", marginBottom: 5 },
-    heroStatValue: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
-    heroStatDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.12)", marginHorizontal: 4 },
+    heroStatLabel: {
+      fontSize: 11,
+      fontFamily: "Inter_400Regular",
+      color: "rgba(255,255,255,0.45)",
+      marginBottom: 5,
+    },
+    heroStatValue: {
+      fontSize: 16,
+      fontFamily: "Inter_700Bold",
+      color: "#FFFFFF",
+    },
+    heroStatDivider: {
+      width: 1,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      marginHorizontal: 4,
+    },
+
+    payoutBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: "rgba(255,255,255,0.15)",
+      borderRadius: 10,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.2)",
+    },
+    payoutBtnDisabled: { opacity: 0.5 },
+    payoutBtnText: {
+      color: "#FFFFFF",
+      fontFamily: "Inter_600SemiBold",
+      fontSize: 14,
+    },
 
     txnHeader: {
       fontSize: 12,
@@ -204,11 +367,28 @@ function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
       alignItems: "center",
       justifyContent: "center",
     },
-    txnRoute: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground },
-    txnMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
+    txnRoute: {
+      fontSize: 14,
+      fontFamily: "Inter_500Medium",
+      color: colors.foreground,
+    },
+    txnMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 3,
+    },
     txnStatus: { fontSize: 12, fontFamily: "Inter_500Medium" },
-    txnDate: { fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-    txnAmount: { fontSize: 15, fontFamily: "Inter_700Bold", color: colors.success },
+    txnDate: {
+      fontSize: 12,
+      color: colors.mutedForeground,
+      fontFamily: "Inter_400Regular",
+    },
+    txnAmount: {
+      fontSize: 15,
+      fontFamily: "Inter_700Bold",
+      color: colors.success,
+    },
 
     empty: {
       flex: 1,
@@ -217,7 +397,15 @@ function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
       paddingTop: 60,
       gap: 10,
     },
-    emptyTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold", color: colors.foreground },
-    emptySub: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+    emptyTitle: {
+      fontSize: 17,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.foreground,
+    },
+    emptySub: {
+      fontSize: 14,
+      color: colors.mutedForeground,
+      fontFamily: "Inter_400Regular",
+    },
   });
 }
