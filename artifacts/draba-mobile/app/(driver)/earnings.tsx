@@ -10,6 +10,7 @@ import {
   StatusBar,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/queryClient";
 import { useColors } from "@/hooks/useColors";
@@ -35,6 +36,7 @@ interface Transaction {
 
 export default function DriverEarningsScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
 
   const { data, isLoading, refetch, isRefetching } = useQuery<EarningsData>({
     queryKey: ["/api/drivers/earnings"],
@@ -49,7 +51,7 @@ export default function DriverEarningsScreen() {
     }),
   });
 
-  const s = makeStyles(colors);
+  const s = makeStyles(colors, insets.top + 20);
   const txns = data?.transactions ?? [];
 
   const renderTxn = ({ item, index }: { item: Transaction; index: number }) => {
@@ -87,7 +89,7 @@ export default function DriverEarningsScreen() {
 
   return (
     <FlatList
-      style={[s.container, { paddingTop: Platform.OS === "web" ? 67 : 0 }]}
+      style={s.container}
       data={txns}
       keyExtractor={(t) => t.id}
       renderItem={renderTxn}
@@ -151,14 +153,14 @@ export default function DriverEarningsScreen() {
   );
 }
 
-function makeStyles(colors: ReturnType<typeof useColors>) {
+function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
     hero: {
       backgroundColor: colors.dark,
       paddingHorizontal: 24,
-      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 76 : 24,
+      paddingTop: topPad,
       paddingBottom: 28,
     },
     heroLabel: { fontSize: 13, fontFamily: "Inter_500Medium", color: "rgba(255,255,255,0.5)", marginBottom: 6 },

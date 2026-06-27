@@ -12,6 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiFetch, apiRequest } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
@@ -33,6 +34,7 @@ interface BookingRequest {
 
 export default function DriverBookingsScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
 
   const { data: bookings = [], isLoading, refetch, isRefetching } = useQuery<BookingRequest[]>({
@@ -96,7 +98,7 @@ export default function DriverBookingsScreen() {
 
   return (
     <FlatList
-      style={[s.container, { paddingTop: Platform.OS === "web" ? 67 : 0 }]}
+      style={[s.container, { paddingTop: insets.top + (Platform.OS === "web" ? 16 : 12) }]}
       data={listData}
       keyExtractor={(item, i) => {
         if (item.type === "header") return `header-${item.title}`;

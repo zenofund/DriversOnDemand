@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/queryClient";
 import { useColors } from "@/hooks/useColors";
@@ -33,13 +34,14 @@ interface Review {
 
 export default function ClientReviewsScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
 
   const { data: reviews = [], isLoading, refetch, isRefetching } = useQuery<Review[]>({
     queryKey: ["/api/clients/me/reviews"],
     queryFn: () => apiFetch<Review[]>("/clients/me/reviews"),
   });
 
-  const s = makeStyles(colors);
+  const s = makeStyles(colors, insets.top + 12);
 
   const avgRating =
     reviews.length > 0
@@ -145,7 +147,7 @@ export default function ClientReviewsScreen() {
   );
 }
 
-function makeStyles(colors: ReturnType<typeof useColors>) {
+function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
@@ -155,7 +157,7 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       alignItems: "center",
       gap: 12,
       paddingHorizontal: 20,
-      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 24 : 20,
+      paddingTop: topPad,
       paddingBottom: 12,
     },
     backBtn: {

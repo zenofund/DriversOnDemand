@@ -13,14 +13,17 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuthStore, type DriverProfile } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 import { useThemeStore, type ThemeMode } from "@/store/themeStore";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function DriverProfileScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { user, profile, setProfile, logout } = useAuthStore();
   const driverProfile = profile as DriverProfile | null;
 
@@ -28,6 +31,9 @@ export default function DriverProfileScreen() {
   const [phone, setPhone] = useState(driverProfile?.phone ?? "");
   const [hourlyRate, setHourlyRate] = useState(String(driverProfile?.hourly_rate ?? ""));
   const [saving, setSaving] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  const firstName = driverProfile?.full_name?.split(" ")[0] ?? "Driver";
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -60,24 +66,17 @@ export default function DriverProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          await supabase.auth.signOut();
-          logout();
-          router.replace("/(auth)/login");
-        },
-      },
-    ]);
+  const handleLogout = () => setShowLogoutDialog(true);
+
+  const doLogout = async () => {
+    await supabase.auth.signOut();
+    logout();
+    router.replace("/(auth)/login");
   };
 
   const { theme, setTheme } = useThemeStore();
 
-  const s = makeStyles(colors);
+  const s = makeStyles(colors, insets.top + 20);
   const isOnline = driverProfile?.online_status === "online";
   const initials = (driverProfile?.full_name || user?.email || "D").charAt(0).toUpperCase();
 
@@ -95,6 +94,7 @@ export default function DriverProfileScreen() {
         <View style={s.avatarRing}>
           <Text style={s.avatarText}>{initials}</Text>
         </View>
+        <Text style={s.heroGreeting}>Hello, {firstName}</Text>
         <Text style={s.heroName}>{driverProfile?.full_name ?? "Driver"}</Text>
         <Text style={s.heroEmail}>{user?.email ?? ""}</Text>
         <View style={s.heroBadges}>
@@ -243,18 +243,29 @@ export default function DriverProfileScreen() {
         <Feather name="log-out" size={16} color={colors.destructive} />
         <Text style={s.logoutText}>Sign Out</Text>
       </TouchableOpacity>
+
+      <ConfirmDialog
+        visible={showLogoutDialog}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        destructive
+        onDismiss={() => setShowLogoutDialog(false)}
+        onConfirm={doLogout}
+      />
     </ScrollView>
   );
 }
 
-function makeStyles(colors: ReturnType<typeof useColors>) {
+function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
     hero: {
       backgroundColor: colors.dark,
       paddingHorizontal: 20,
-      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 76 : 24,
+      paddingTop: topPad,
       paddingBottom: 28,
       alignItems: "center",
     },
@@ -268,6 +279,12 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       marginBottom: 12,
     },
     avatarText: { fontSize: 32, fontFamily: "Inter_700Bold", color: colors.dark },
+    heroGreeting: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      color: "rgba(255,255,255,0.5)",
+      marginBottom: 2,
+    },
     heroName: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
     heroEmail: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)", marginTop: 3 },
     heroBadges: { flexDirection: "row", gap: 8, marginTop: 12, marginBottom: 20 },

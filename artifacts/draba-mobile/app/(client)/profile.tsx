@@ -13,20 +13,26 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuthStore, type ClientProfile } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
 import { useThemeStore, type ThemeMode } from "@/store/themeStore";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function ClientProfileScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { user, profile, setProfile, logout } = useAuthStore();
   const clientProfile = profile as ClientProfile | null;
 
   const [fullName, setFullName] = useState(clientProfile?.full_name ?? "");
   const [phone, setPhone] = useState(clientProfile?.phone ?? "");
   const [saving, setSaving] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  const firstName = clientProfile?.full_name?.split(" ")[0] ?? "there";
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -53,24 +59,17 @@ export default function ClientProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          await supabase.auth.signOut();
-          logout();
-          router.replace("/(auth)/login");
-        },
-      },
-    ]);
+  const handleLogout = () => setShowLogoutDialog(true);
+
+  const doLogout = async () => {
+    await supabase.auth.signOut();
+    logout();
+    router.replace("/(auth)/login");
   };
 
   const { theme, setTheme } = useThemeStore();
 
-  const s = makeStyles(colors);
+  const s = makeStyles(colors, insets.top + 20);
   const initials = (clientProfile?.full_name || user?.email || "C").charAt(0).toUpperCase();
 
   return (
@@ -87,6 +86,7 @@ export default function ClientProfileScreen() {
         <View style={s.avatarRing}>
           <Text style={s.avatarText}>{initials}</Text>
         </View>
+        <Text style={s.greeting}>Hello, {firstName}</Text>
         <Text style={s.userName}>{clientProfile?.full_name ?? "Client"}</Text>
         <Text style={s.userEmail}>{user?.email ?? ""}</Text>
         {clientProfile?.nin_verified ? (
@@ -204,17 +204,28 @@ export default function ClientProfileScreen() {
         <Feather name="log-out" size={16} color={colors.destructive} />
         <Text style={s.logoutText}>Sign Out</Text>
       </TouchableOpacity>
+
+      <ConfirmDialog
+        visible={showLogoutDialog}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        destructive
+        onDismiss={() => setShowLogoutDialog(false)}
+        onConfirm={doLogout}
+      />
     </ScrollView>
   );
 }
 
-function makeStyles(colors: ReturnType<typeof useColors>) {
+function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
     avatarSection: {
       alignItems: "center",
-      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 76 : 24,
+      paddingTop: topPad,
       paddingBottom: 24,
       paddingHorizontal: 20,
     },
@@ -228,6 +239,12 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       marginBottom: 12,
     },
     avatarText: { fontSize: 32, fontFamily: "Inter_700Bold", color: colors.primary },
+    greeting: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      marginBottom: 2,
+    },
     userName: { fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground },
     userEmail: { fontSize: 14, color: colors.mutedForeground, fontFamily: "Inter_400Regular", marginTop: 3 },
     verifiedBadge: {

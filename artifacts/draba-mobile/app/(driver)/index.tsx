@@ -88,7 +88,7 @@ export default function DriverDashboardScreen() {
         }
       }
 
-      const res = await apiRequest("POST", "/drivers/toggle-online");
+      const res = await apiRequest("POST", "/drivers/toggle-online", { online: newStatus === "online" });
       if (!res.ok) {
         // Revert optimistic update on failure
         setProfile({ ...driverProfile!, online_status: isOnline ? "online" : "offline" } as DriverProfile);

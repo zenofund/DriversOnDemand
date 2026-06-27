@@ -10,6 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { apiFetch } from "@/lib/queryClient";
@@ -40,6 +41,7 @@ const STATUS: Record<Booking["status"], { label: string; color: string; bar: str
 
 export default function ClientBookingsScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
 
   const { data: bookings = [], isLoading, refetch, isRefetching } = useQuery<Booking[]>({
     queryKey: ["/api/bookings"],
@@ -113,7 +115,7 @@ export default function ClientBookingsScreen() {
 
   return (
     <FlatList
-      style={[s.container, { paddingTop: Platform.OS === "web" ? 67 : 0 }]}
+      style={[s.container, { paddingTop: insets.top + (Platform.OS === "web" ? 16 : 12) }]}
       data={[...active, ...past]}
       keyExtractor={(b) => b.id}
       renderItem={renderBooking}
