@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch, apiRequest } from "@/lib/queryClient";
 import { useAuthStore, type DriverProfile } from "@/store/authStore";
@@ -35,6 +36,7 @@ interface RecentBooking {
 
 export default function DriverDashboardScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { profile, setProfile } = useAuthStore();
   const driverProfile = profile as DriverProfile | null;
   const [toggling, setToggling] = useState(false);
@@ -68,19 +70,38 @@ export default function DriverDashboardScreen() {
       }
     }
     setToggling(true);
+
+    // Optimistically flip UI immediately so the button responds at once
+    const newStatus: "online" | "offline" = isOnline ? "offline" : "online";
+    setProfile({ ...driverProfile!, online_status: newStatus } as DriverProfile);
+
     try {
-      if (!isOnline) {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        await apiRequest("PATCH", "/drivers/me/location", {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
+      if (newStatus === "online") {
+        try {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          await apiRequest("PATCH", "/drivers/me/location", {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+        } catch {
+          // Location update is best-effort; continue
+        }
       }
+
       const res = await apiRequest("POST", "/drivers/toggle-online");
-      if (!res.ok) throw new Error("Failed to update status");
-      const updated = await apiRequest("GET", "/drivers/me");
-      if (updated.ok) setProfile(await updated.json());
-      else setProfile({ ...driverProfile!, online_status: isOnline ? "offline" : "online" });
+      if (!res.ok) {
+        // Revert optimistic update on failure
+        setProfile({ ...driverProfile!, online_status: isOnline ? "online" : "offline" } as DriverProfile);
+        throw new Error("Failed to update availability.");
+      }
+
+      // Confirm with fresh server data
+      try {
+        const fresh = await apiFetch<DriverProfile>("/drivers/me");
+        setProfile(fresh);
+      } catch {
+        // Keep optimistic update — server toggle succeeded
+      }
     } catch (err: any) {
       Alert.alert("Error", err.message ?? "Could not update status.");
     } finally {
@@ -88,8 +109,8 @@ export default function DriverDashboardScreen() {
     }
   };
 
-  const s = makeStyles(colors);
-
+  const topPad = insets.top + 20;
+  const s = makeStyles(colors, topPad);
   const statusColor = isOnline ? colors.success : colors.mutedForeground;
 
   return (
@@ -100,7 +121,7 @@ export default function DriverDashboardScreen() {
     >
       <StatusBar barStyle="light-content" />
 
-      {/* Dark hero section */}
+      {/* Dark hero */}
       <View style={s.hero}>
         <View style={s.heroTop}>
           <View>
@@ -116,12 +137,14 @@ export default function DriverDashboardScreen() {
         </View>
 
         <View style={s.toggleArea}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={s.toggleTitle}>
               {isOnline ? "You're accepting rides" : "You're not visible"}
             </Text>
             <Text style={s.toggleSub}>
-              {isOnline ? "Clients can see and book you" : "Toggle to start receiving requests"}
+              {isOnline
+                ? "Clients can see and book you"
+                : "Tap to start receiving requests"}
             </Text>
           </View>
           <TouchableOpacity
@@ -135,7 +158,7 @@ export default function DriverDashboardScreen() {
             ) : (
               <Feather
                 name={isOnline ? "zap" : "zap-off"}
-                size={18}
+                size={20}
                 color={isOnline ? colors.dark : "#FFFFFF"}
               />
             )}
@@ -145,10 +168,30 @@ export default function DriverDashboardScreen() {
 
       {/* Stats */}
       <View style={s.statsGrid}>
-        <StatTile label="Total Earned" value={`₦${(earnings?.total_earned ?? 0).toLocaleString()}`} icon="trending-up" colors={colors} />
-        <StatTile label="This Week" value={`₦${(earnings?.this_week ?? 0).toLocaleString()}`} icon="calendar" colors={colors} />
-        <StatTile label="Trips Done" value={String(earnings?.completed_trips ?? driverProfile?.total_trips ?? 0)} icon="navigation" colors={colors} />
-        <StatTile label="Rating" value={driverProfile?.rating?.toFixed(1) ?? "5.0"} icon="star" colors={colors} />
+        <StatTile
+          label="Total Earned"
+          value={`₦${(earnings?.total_earned ?? 0).toLocaleString()}`}
+          icon="trending-up"
+          colors={colors}
+        />
+        <StatTile
+          label="This Week"
+          value={`₦${(earnings?.this_week ?? 0).toLocaleString()}`}
+          icon="calendar"
+          colors={colors}
+        />
+        <StatTile
+          label="Trips Done"
+          value={String(earnings?.completed_trips ?? driverProfile?.total_trips ?? 0)}
+          icon="navigation"
+          colors={colors}
+        />
+        <StatTile
+          label="Rating"
+          value={driverProfile?.rating?.toFixed(1) ?? "5.0"}
+          icon="star"
+          colors={colors}
+        />
       </View>
 
       {/* Recent activity */}
@@ -165,15 +208,27 @@ export default function DriverDashboardScreen() {
               pending: colors.warning,
             };
             return (
-              <View key={b.id} style={[s.activityRow, i < recentBookings.length - 1 && s.activityRowBorder]}>
-                <View style={[s.activityDot, { backgroundColor: statusColors[b.status] ?? colors.mutedForeground }]} />
+              <View
+                key={b.id}
+                style={[s.activityRow, i < recentBookings.length - 1 && s.activityRowBorder]}
+              >
+                <View
+                  style={[
+                    s.activityDot,
+                    { backgroundColor: statusColors[b.status] ?? colors.mutedForeground },
+                  ]}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={s.activityRoute} numberOfLines={1}>
                     {b.pickup_location} → {b.destination}
                   </Text>
                   <Text style={s.activityDate}>
-                    {new Date(b.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
-                    {" · "}{b.status}
+                    {new Date(b.created_at).toLocaleDateString("en-NG", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                    {" · "}
+                    {b.status}
                   </Text>
                 </View>
                 <Text style={s.activityAmount}>₦{(b.estimated_cost ?? 0).toLocaleString()}</Text>
@@ -205,35 +260,46 @@ function StatTile({
   colors: ReturnType<typeof useColors>;
 }) {
   return (
-    <View style={{
-      width: "48%",
-      padding: 16,
-      marginBottom: 12,
-    }}>
+    <View style={{ width: "48%", padding: 16, marginBottom: 12 }}>
       <Feather name={icon as any} size={18} color={colors.primary} style={{ marginBottom: 10 }} />
-      <Text style={{ fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground }}>{value}</Text>
-      <Text style={{ fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 3 }}>{label}</Text>
+      <Text style={{ fontSize: 20, fontFamily: "Inter_700Bold", color: colors.foreground }}>
+        {value}
+      </Text>
+      <Text
+        style={{
+          fontSize: 12,
+          fontFamily: "Inter_400Regular",
+          color: colors.mutedForeground,
+          marginTop: 3,
+        }}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
 
-function makeStyles(colors: ReturnType<typeof useColors>) {
+function makeStyles(colors: ReturnType<typeof useColors>, topPad: number) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
     hero: {
       backgroundColor: colors.dark,
       paddingHorizontal: 20,
-      paddingTop: Platform.OS === "ios" ? 60 : Platform.OS === "web" ? 76 : 24,
+      paddingTop: topPad,
       paddingBottom: 28,
     },
     heroTop: {
       flexDirection: "row",
       alignItems: "flex-start",
       justifyContent: "space-between",
-      marginBottom: 28,
+      marginBottom: 24,
     },
-    heroGreeting: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)" },
+    heroGreeting: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      color: "rgba(255,255,255,0.5)",
+    },
     heroName: { fontSize: 24, fontFamily: "Inter_700Bold", color: "#FFFFFF", marginTop: 2 },
     statusPill: {
       flexDirection: "row",
@@ -255,18 +321,29 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       backgroundColor: "rgba(255,255,255,0.06)",
       borderRadius: 14,
       padding: 16,
+      gap: 12,
     },
-    toggleTitle: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#FFFFFF", marginBottom: 4 },
-    toggleSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.5)" },
+    toggleTitle: {
+      fontSize: 15,
+      fontFamily: "Inter_600SemiBold",
+      color: "#FFFFFF",
+      marginBottom: 4,
+    },
+    toggleSub: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      color: "rgba(255,255,255,0.5)",
+    },
     toggleBtn: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
       alignItems: "center",
       justifyContent: "center",
+      flexShrink: 0,
     },
     toggleBtnOnline: { backgroundColor: colors.accent },
-    toggleBtnOffline: { backgroundColor: "rgba(255,255,255,0.12)" },
+    toggleBtnOffline: { backgroundColor: "rgba(255,255,255,0.14)" },
 
     statsGrid: {
       flexDirection: "row",
@@ -278,10 +355,7 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       borderBottomColor: colors.border,
     },
 
-    section: {
-      paddingTop: 20,
-      paddingHorizontal: 20,
-    },
+    section: { paddingTop: 20, paddingHorizontal: 20 },
     sectionTitle: {
       fontSize: 12,
       fontFamily: "Inter_600SemiBold",
@@ -296,20 +370,27 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       paddingVertical: 13,
       gap: 12,
     },
-    activityRowBorder: {
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
+    activityRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
     activityDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-    activityRoute: { fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground },
-    activityDate: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, marginTop: 2, textTransform: "capitalize" },
+    activityRoute: {
+      fontSize: 14,
+      fontFamily: "Inter_500Medium",
+      color: colors.foreground,
+    },
+    activityDate: {
+      fontSize: 12,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
+      marginTop: 2,
+      textTransform: "capitalize",
+    },
     activityAmount: { fontSize: 14, fontFamily: "Inter_700Bold", color: colors.foreground },
 
-    emptyActivity: {
-      alignItems: "center",
-      paddingTop: 40,
-      gap: 10,
+    emptyActivity: { alignItems: "center", paddingTop: 40, gap: 10 },
+    emptyText: {
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+      color: colors.mutedForeground,
     },
-    emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", color: colors.mutedForeground },
   });
 }
