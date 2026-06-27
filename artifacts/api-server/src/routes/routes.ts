@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { z } from "zod/v4";
+import { z } from "zod";
 import crypto from "crypto";
 
 // Supabase client setup

@@ -20,6 +20,14 @@ author = "agent"
 task = "workflow.run"
 args = "Draba Mobile"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Draba Web"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "API Server"
+
 [[workflows.workflow]]
 name = "Draba Mobile"
 author = "agent"
@@ -30,6 +38,28 @@ args = "PORT=22778 BASE_PATH=/draba-mobile/ pnpm --filter @workspace/draba-mobil
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "Draba Web"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=20344 BASE_PATH=/ pnpm --filter @workspace/draba run dev"
+
+[[workflows.workflow]]
+name = "API Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
 
 [agent]
 stack = "PNPM_WORKSPACE"
