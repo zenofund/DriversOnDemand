@@ -39,6 +39,48 @@ const colors = {
     darkMuted: "rgba(255,255,255,0.55)",
     darkBorder: "rgba(255,255,255,0.10)",
   },
+
+  dark: {
+    text: "#F2F2F8",
+    tint: "#C4A225",
+
+    background: "#0D0F15",
+    foreground: "#F2F2F8",
+
+    card: "#1A1E2C",
+    cardForeground: "#F2F2F8",
+
+    primary: "#C4A225",
+    primaryForeground: "#0D0F15",
+
+    secondary: "#232638",
+    secondaryForeground: "#F2F2F8",
+
+    muted: "#1E2135",
+    mutedForeground: "#7E849A",
+
+    accent: "#C4A225",
+    accentForeground: "#0D0F15",
+
+    destructive: "#EF4444",
+    destructiveForeground: "#FFFFFF",
+
+    border: "#272B40",
+    input: "#272B40",
+
+    success: "#22C55E",
+    successForeground: "#FFFFFF",
+
+    warning: "#F59E0B",
+    warningForeground: "#FFFFFF",
+
+    dark: "#080A0F",
+    darkCard: "#141620",
+    darkForeground: "#FFFFFF",
+    darkMuted: "rgba(255,255,255,0.55)",
+    darkBorder: "rgba(255,255,255,0.10)",
+  },
+
   radius: 12,
 };
 

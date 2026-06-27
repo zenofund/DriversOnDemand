@@ -37,12 +37,9 @@ function ClassicClientTabs() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
-        headerShown: true,
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.foreground,
-        headerTitleStyle: { fontFamily: "Inter_600SemiBold" },
         tabBarStyle: {
           position: "absolute",
           backgroundColor: isIOS ? "transparent" : colors.background,
@@ -66,7 +63,6 @@ function ClassicClientTabs() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Book a Driver",
           tabBarLabel: "Book",
           tabBarIcon: ({ color }) =>
             isIOS ? (
@@ -79,7 +75,6 @@ function ClassicClientTabs() {
       <Tabs.Screen
         name="bookings"
         options={{
-          title: "My Bookings",
           tabBarLabel: "Bookings",
           tabBarIcon: ({ color }) =>
             isIOS ? (
@@ -92,7 +87,6 @@ function ClassicClientTabs() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="person" tintColor={color} size={24} />
@@ -105,6 +99,7 @@ function ClassicClientTabs() {
       <Tabs.Screen name="active-booking" options={{ href: null }} />
       <Tabs.Screen name="verify-nin" options={{ href: null }} />
       <Tabs.Screen name="chat" options={{ href: null }} />
+      <Tabs.Screen name="reviews" options={{ href: null }} />
     </Tabs>
   );
 }

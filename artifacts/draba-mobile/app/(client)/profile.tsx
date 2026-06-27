@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuthStore, type ClientProfile } from "@/store/authStore";
 import { useColors } from "@/hooks/useColors";
+import { useThemeStore, type ThemeMode } from "@/store/themeStore";
 
 export default function ClientProfileScreen() {
   const colors = useColors();
@@ -66,6 +67,8 @@ export default function ClientProfileScreen() {
       },
     ]);
   };
+
+  const { theme, setTheme } = useThemeStore();
 
   const s = makeStyles(colors);
   const initials = (clientProfile?.full_name || user?.email || "C").charAt(0).toUpperCase();
@@ -160,11 +163,41 @@ export default function ClientProfileScreen() {
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </TouchableOpacity>
         <View style={s.menuDivider} />
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(client)/reviews")}>
+          <Feather name="star" size={18} color={colors.foreground} />
+          <Text style={s.menuItemText}>My Reviews</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
+        <View style={s.menuDivider} />
         <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(client)/verify-nin")}>
           <Feather name="shield" size={18} color={colors.foreground} />
           <Text style={s.menuItemText}>Identity Verification</Text>
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </TouchableOpacity>
+      </View>
+
+      {/* Theme toggle */}
+      <View style={s.themeSection}>
+        <Text style={s.themeSectionTitle}>Appearance</Text>
+        <View style={s.themePills}>
+          {(["light", "dark", "system"] as ThemeMode[]).map((opt) => (
+            <TouchableOpacity
+              key={opt}
+              style={[s.themePill, theme === opt && s.themePillActive]}
+              onPress={() => setTheme(opt)}
+              activeOpacity={0.8}
+            >
+              <Feather
+                name={opt === "light" ? "sun" : opt === "dark" ? "moon" : "smartphone"}
+                size={14}
+                color={theme === opt ? colors.primaryForeground : colors.mutedForeground}
+              />
+              <Text style={[s.themePillText, theme === opt && s.themePillTextActive]}>
+                {opt.charAt(0).toUpperCase() + opt.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
@@ -255,6 +288,48 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
       paddingVertical: 14,
       alignItems: "center",
       marginTop: 4,
+    },
+    themeSection: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 8,
+    },
+    themeSectionTitle: {
+      fontSize: 12,
+      fontFamily: "Inter_600SemiBold",
+      color: colors.mutedForeground,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      marginBottom: 12,
+    },
+    themePills: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    themePill: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    themePillActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    themePillText: {
+      fontSize: 13,
+      fontFamily: "Inter_500Medium",
+      color: colors.mutedForeground,
+    },
+    themePillTextActive: {
+      color: colors.primaryForeground,
+      fontFamily: "Inter_600SemiBold",
     },
     saveBtnText: { color: "#FFFFFF", fontFamily: "Inter_600SemiBold", fontSize: 15 },
     btnDisabled: { opacity: 0.55 },

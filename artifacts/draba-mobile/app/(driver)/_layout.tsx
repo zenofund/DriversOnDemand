@@ -41,12 +41,9 @@ function ClassicDriverTabs() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
-        headerShown: true,
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.foreground,
-        headerTitleStyle: { fontFamily: "Inter_600SemiBold" },
         tabBarStyle: {
           position: "absolute",
           backgroundColor: isIOS ? "transparent" : colors.background,
@@ -70,7 +67,6 @@ function ClassicDriverTabs() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="gauge" tintColor={color} size={24} />
@@ -82,7 +78,6 @@ function ClassicDriverTabs() {
       <Tabs.Screen
         name="bookings"
         options={{
-          title: "Requests",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="bell" tintColor={color} size={24} />
@@ -94,7 +89,6 @@ function ClassicDriverTabs() {
       <Tabs.Screen
         name="earnings"
         options={{
-          title: "Earnings",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="banknote" tintColor={color} size={24} />
@@ -106,7 +100,6 @@ function ClassicDriverTabs() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="person" tintColor={color} size={24} />
@@ -116,6 +109,7 @@ function ClassicDriverTabs() {
         }}
       />
       <Tabs.Screen name="chat" options={{ href: null }} />
+      <Tabs.Screen name="reviews" options={{ href: null }} />
     </Tabs>
   );
 }
