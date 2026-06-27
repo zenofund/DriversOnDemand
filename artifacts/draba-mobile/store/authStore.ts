@@ -15,6 +15,11 @@ export interface DriverProfile {
   rating: number;
   total_trips: number;
   profile_picture_url: string | null;
+  license_no?: string | null;
+  bank_code?: string | null;
+  account_number?: string | null;
+  account_name?: string | null;
+  current_location?: { lat: number; lng: number } | null;
 }
 
 export interface ClientProfile {

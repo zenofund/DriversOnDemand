@@ -213,6 +213,12 @@ export default function DriverProfileScreen() {
           <Text style={s.menuItemText}>My Reviews</Text>
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </TouchableOpacity>
+        <View style={s.menuDivider} />
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(driver)/settings")}>
+          <Feather name="settings" size={18} color={colors.foreground} />
+          <Text style={s.menuItemText}>Settings</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
       </View>
 
       {/* Theme toggle */}

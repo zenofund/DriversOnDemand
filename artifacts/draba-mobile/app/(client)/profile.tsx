@@ -169,6 +169,12 @@ export default function ClientProfileScreen() {
           <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
         </TouchableOpacity>
         <View style={s.menuDivider} />
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(client)/settings")}>
+          <Feather name="settings" size={18} color={colors.foreground} />
+          <Text style={s.menuItemText}>Settings</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
+        <View style={s.menuDivider} />
         <TouchableOpacity style={s.menuItem} onPress={() => router.push("/(client)/verify-nin")}>
           <Feather name="shield" size={18} color={colors.foreground} />
           <Text style={s.menuItemText}>Identity Verification</Text>
