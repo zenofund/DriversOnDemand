@@ -1,11 +1,6 @@
 import { Resend } from 'resend';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../lib/supabase';
 import { EmailType, EmailStatus } from '@workspace/db';
-
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // ============================================================================
 // RESEND CLIENT SETUP (from Replit connector)

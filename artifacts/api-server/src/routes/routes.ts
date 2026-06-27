@@ -4,7 +4,7 @@ import { z } from "zod";
 import crypto from "crypto";
 
 // Supabase client setup
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin as supabase } from '../lib/supabase';
 
 // Schemas
 import { updateDriverProfileSchema, updateDriverBankSchema } from '@workspace/db';
@@ -39,22 +39,6 @@ import { verifyDriverVerificationPayment } from '../services/paystackService';
 
 // Svix for webhook verification
 import { Webhook } from 'svix';
-
-// Server should use service role key for full database access
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables');
-  throw new Error('Supabase configuration missing');
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
 
 // Paystack setup
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY!;
