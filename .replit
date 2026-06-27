@@ -61,8 +61,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8000 BASE_PATH=/draba-mobile/ pnpm --filter @workspace/draba-mobile run dev"
-waitForPort = 8000
+args = "PORT=8081 BASE_PATH=/draba-mobile/ pnpm --filter @workspace/draba-mobile run dev"
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -77,12 +76,12 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
 localPort = 8000
 externalPort = 8000
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
 
 [nix]
 channel = "stable-25_05"
